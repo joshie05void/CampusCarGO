@@ -10,6 +10,8 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+const rideRoutes = require('./routes/rides');
+app.use('/api/rides', rideRoutes);
 
 app.get('/', (req, res) => {
   res.send('CampusCarGO backend is running');
