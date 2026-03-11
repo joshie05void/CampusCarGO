@@ -14,6 +14,8 @@ const rideRoutes = require('./routes/rides');
 app.use('/api/rides', rideRoutes);
 const mapRoutes = require('./routes/maps');
 app.use('/api/maps', mapRoutes);
+const matchRoutes = require('./routes/match');
+app.use('/api/match', matchRoutes);
 
 app.get('/', (req, res) => {
   res.send('CampusCarGO backend is running');

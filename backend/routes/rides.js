@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 
-// Middleware to verify token
 const verifyToken = (req, res, next) => {
   const token = req.headers['authorization'];
   if (!token) return res.status(401).json({ error: 'No token provided' });
@@ -19,11 +19,18 @@ const verifyToken = (req, res, next) => {
 // Post a ride (driver only)
 router.post('/post', verifyToken, async (req, res) => {
   if (req.user.role !== 'driver') return res.status(403).json({ error: 'Only drivers can post rides' });
-  const { start_location, end_location, departure_time, available_seats } = req.body;
+  const { start_location, end_location, departure_time, available_seats, start_lng, start_lat, end_lng, end_lat } = req.body;
   try {
+    const orsResponse = await axios.post(
+      'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
+      { coordinates: [[start_lng, start_lat], [end_lng, end_lat]] },
+      { headers: { Authorization: process.env.ORS_API_KEY, 'Content-Type': 'application/json' } }
+    );
+    const coordinates = orsResponse.data.features[0].geometry.coordinates;
+    const linestring = 'LINESTRING(' + coordinates.map(c => c[0] + ' ' + c[1]).join(',') + ')';
     const result = await pool.query(
-      'INSERT INTO rides (driver_id, start_location, end_location, departure_time, available_seats) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [req.user.id, start_location, end_location, departure_time, available_seats]
+      'INSERT INTO rides (driver_id, start_location, end_location, departure_time, available_seats, route_polyline) VALUES ($1, $2, $3, $4, $5, ST_GeomFromText($6, 4326)) RETURNING id, driver_id, start_location, end_location, departure_time, available_seats, status',
+      [req.user.id, start_location, end_location, departure_time, available_seats, linestring]
     );
     res.json({ message: 'Ride posted successfully', ride: result.rows[0] });
   } catch (err) {
@@ -31,7 +38,7 @@ router.post('/post', verifyToken, async (req, res) => {
   }
 });
 
-// Get all active rides (passenger)
+// Get all active rides
 router.get('/available', verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
@@ -44,7 +51,7 @@ router.get('/available', verifyToken, async (req, res) => {
   }
 });
 
-// Request to join a ride (passenger only)
+// Request to join a ride
 router.post('/request', verifyToken, async (req, res) => {
   if (req.user.role !== 'passenger') return res.status(403).json({ error: 'Only passengers can request rides' });
   const { ride_id, pickup_location, dropoff_location } = req.body;
