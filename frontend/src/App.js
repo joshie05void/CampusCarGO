@@ -11,12 +11,17 @@ function App() {
     setRole(role);
   };
 
+  const handleLogout = () => {
+    setToken(null);
+    setRole(null);
+  };
+
   return (
     <div>
       {!token ? (
         <Login onLogin={handleLogin} />
       ) : (
-        <Dashboard token={token} role={role} />
+        <Dashboard token={token} role={role} onLogout={handleLogout} />
       )}
     </div>
   );
