@@ -16,29 +16,31 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// Get route polyline from ORS
 router.post('/route', verifyToken, async (req, res) => {
   const { start_lng, start_lat, end_lng, end_lat } = req.body;
   try {
     const response = await axios.post(
       'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
-      {
-        coordinates: [
-          [start_lng, start_lat],
-          [end_lng, end_lat]
-        ]
-      },
-      {
-        headers: {
-          Authorization: process.env.ORS_API_KEY,
-          'Content-Type': 'application/json'
-        }
-      }
+      { coordinates: [[start_lng, start_lat], [end_lng, end_lat]] },
+      { headers: { Authorization: process.env.ORS_API_KEY, 'Content-Type': 'application/json' } }
     );
     const coordinates = response.data.features[0].geometry.coordinates;
     const distance = response.data.features[0].properties.summary.distance;
     const duration = response.data.features[0].properties.summary.duration;
     res.json({ coordinates, distance_meters: distance, duration_seconds: duration });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/search', async (req, res) => {
+  const { q } = req.query;
+  try {
+    const response = await axios.get(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}, Thiruvananthapuram&format=json&limit=5`,
+      { headers: { 'User-Agent': 'CampusCarGO/1.0' } }
+    );
+    res.json(response.data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
