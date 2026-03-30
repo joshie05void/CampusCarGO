@@ -21,7 +21,6 @@ const verifyToken = (req, res, next) => {
 //  UTILITY FUNCTIONS
 // ═══════════════════════════════════════════════
 
-// Haversine distance in meters
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -32,7 +31,6 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Bearing between two points in degrees (0–360)
 function bearing(lat1, lon1, lat2, lon2) {
   const toRad = d => d * Math.PI / 180;
   const toDeg = r => r * 180 / Math.PI;
@@ -43,15 +41,21 @@ function bearing(lat1, lon1, lat2, lon2) {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
-// Angular difference (0–180)
 function angleDiff(a, b) {
   let diff = Math.abs(a - b) % 360;
   return diff > 180 ? 360 - diff : diff;
 }
 
-// Sigmoid time score — flat near 0 min, steep drop around 30 min, near 0 beyond 50 min
+// Sigmoid time score — flat near 0 min, steep drop around 30 min
 function sigmoidTimeScore(diffMinutes) {
   return 1 / (1 + Math.exp(0.15 * (diffMinutes - 30)));
+}
+
+// Exponential proximity decay — no hard cutoff, just penalises distance smoothly.
+// Half-life at ~3 km (score = 0.5 at 3 km, ~0.14 at 10 km, ~0.02 at 20 km).
+// This replaces the old linear decay that went to 0 at 3 km.
+function proximityScore(distanceMeters) {
+  return Math.exp(-distanceMeters / 4330); // ln(2)/4330 ≈ 0.00016 → half-life 3 km
 }
 
 // Call ORS for a multi-waypoint route and return total distance in meters
@@ -61,20 +65,16 @@ async function getORSRouteDistance(coordinates) {
       'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
       { coordinates },
       {
-        headers: {
-          Authorization: process.env.ORS_API_KEY,
-          'Content-Type': 'application/json'
-        },
+        headers: { Authorization: process.env.ORS_API_KEY, 'Content-Type': 'application/json' },
         timeout: 8000
       }
     );
     return response.data.features[0].properties.summary.distance;
   } catch (err) {
-    return null; // graceful fallback — caller handles null
+    return null;
   }
 }
 
-// Sleep helper for rate limiting ORS calls
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 
@@ -82,13 +82,12 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 //  SCORING WEIGHTS
 // ═══════════════════════════════════════════════
 const WEIGHTS = {
-  detour:    0.40,   // how much extra the driver would drive
-  position:  0.25,   // where on the route the pickup falls
-  time:      0.20,   // departure time compatibility
-  proximity: 0.15    // raw distance from pickup to route
+  detour:    0.40,
+  position:  0.25,
+  time:      0.20,
+  proximity: 0.15
 };
 
-// SCT Pappanamcode — fixed destination
 const SCT = { lat: 8.5241, lng: 76.9366 };
 
 
@@ -104,39 +103,31 @@ router.post('/find', verifyToken, async (req, res) => {
 
   try {
     // ──────────────────────────────────────────
-    // STEP 1 — Broad candidate fetch (3 km radius)
+    // STEP 1 — Candidate fetch (all active rides, no distance filter)
     //
-    // Uses PostGIS ST_DWithin for efficient spatial search.
-    // Also fetches geometry data we need for scoring:
-    //   • pickup_distance  — meters from pickup to nearest point on route
-    //   • route_fraction   — 0.0 (start) to 1.0 (end) where pickup projects
-    //   • closest point    — the actual lat/lng on the route nearest to pickup
-    //   • route length     — total route distance in meters
-    //   • route start/end  — for direction alignment check
+    // No ST_DWithin radius at all. Every active ride in the DB is a
+    // candidate. The proximity score (exponential decay) handles the
+    // distance penalty — far rides just score lower, they are never
+    // hidden. Results are ordered nearest-first so the top 20 are the
+    // most spatially relevant, but all rides are reachable in principle.
     // ──────────────────────────────────────────
     const candidateQuery = await pool.query(
       `SELECT
          rides.*,
          users.name AS driver_name,
-         -- Distance from pickup to nearest point on route (meters)
          ST_Distance(
            route_polyline::geography,
            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
          ) AS pickup_distance,
-         -- Fraction along route where pickup projects (0 = start, 1 = end)
          ST_LineLocatePoint(
            route_polyline,
            ST_SetSRID(ST_MakePoint($1, $2), 4326)
          ) AS route_fraction,
-         -- Closest point on route to the pickup
          ST_X(ST_ClosestPoint(route_polyline, ST_SetSRID(ST_MakePoint($1, $2), 4326))) AS closest_lng,
          ST_Y(ST_ClosestPoint(route_polyline, ST_SetSRID(ST_MakePoint($1, $2), 4326))) AS closest_lat,
-         -- Total route length in meters
          ST_Length(route_polyline::geography) AS route_length_m,
-         -- Route start point
          ST_X(ST_StartPoint(route_polyline)) AS start_lng,
          ST_Y(ST_StartPoint(route_polyline)) AS start_lat,
-         -- Route end point
          ST_X(ST_EndPoint(route_polyline)) AS end_lng,
          ST_Y(ST_EndPoint(route_polyline)) AS end_lat
        FROM rides
@@ -144,11 +135,6 @@ router.post('/find', verifyToken, async (req, res) => {
        WHERE rides.status = 'active'
          AND rides.available_seats > 0
          AND rides.driver_id != $3
-         AND ST_DWithin(
-           route_polyline::geography,
-           ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-           3000
-         )
        ORDER BY pickup_distance ASC
        LIMIT 20`,
       [pickup_lng, pickup_lat, req.user.id]
@@ -158,28 +144,26 @@ router.post('/find', verifyToken, async (req, res) => {
       return res.json({
         matches: [],
         total_candidates: 0,
-        message: 'No rides found within 3 km of your pickup location.'
+        message: 'No drivers are currently active. Check back later.'
       });
     }
 
     // ──────────────────────────────────────────
-    // STEP 2 — Pre-filter: direction & dropoff
+    // STEP 2 — Pre-filter: destination & direction
     //
-    // Fast checks that eliminate clearly wrong rides before
-    // we spend ORS calls on them:
-    //   a) Route endpoint must be within 2 km of SCT
-    //   b) Driver's overall bearing must roughly align with
-    //      the passenger's pickup→dropoff bearing (< 90°)
+    // These are hard constraints that make a ride fundamentally useless:
+    //   a) Route must end within 2 km of SCT (correct destination)
+    //   b) Driver must be going roughly toward SCT — not in the opposite
+    //      direction (bearing difference > 90°). A backtracking ride is
+    //      not a proximity problem, it's a route mismatch.
     // ──────────────────────────────────────────
     let candidates = candidateQuery.rows.filter(ride => {
-      // (a) Dropoff verification — route must end near SCT
       const endToSCT = haversine(
         parseFloat(ride.end_lat), parseFloat(ride.end_lng),
         SCT.lat, SCT.lng
       );
       if (endToSCT > 2000) return false;
 
-      // (b) Direction alignment
       const rideBearing = bearing(
         parseFloat(ride.start_lat), parseFloat(ride.start_lng),
         parseFloat(ride.end_lat), parseFloat(ride.end_lng)
@@ -197,11 +181,11 @@ router.post('/find', verifyToken, async (req, res) => {
       return res.json({
         matches: [],
         total_candidates: candidateQuery.rows.length,
-        message: 'Rides were found nearby but none are heading in your direction.'
+        message: 'Drivers are active but none are heading to SCT from your direction right now.'
       });
     }
 
-    // Take top 10 by proximity for detailed scoring (limits ORS calls)
+    // Top 10 by proximity for ORS calls
     candidates = candidates.slice(0, 10);
 
     // ──────────────────────────────────────────
@@ -216,54 +200,30 @@ router.post('/find', verifyToken, async (req, res) => {
       const routeLength = parseFloat(ride.route_length_m);
 
       // ── FACTOR 1: Detour Cost (40%) ──────────
-      //
-      // The most important factor. Calls ORS to compute:
-      //   original route:  driver start → SCT
-      //   detour route:    driver start → passenger pickup → SCT
-      //   extra distance = detour - original
-      //
-      // Example: Peroorkada→SCT is 7.2 km via Sasthamangalam.
-      //          Peroorkada→Pattom→SCT is 9.1 km.
-      //          Detour ratio = (9.1-7.2)/7.2 = 26% → low score
-      //
-      // Falls back to proximity-based estimate if ORS unavailable.
-      // ─────────────────────────────────────────
       let detourScore = null;
       let detourExtraMeters = null;
       let detourPercent = null;
 
       try {
-        const startCoord = [parseFloat(ride.start_lng), parseFloat(ride.start_lat)];
-        const endCoord = [parseFloat(ride.end_lng), parseFloat(ride.end_lat)];
+        const startCoord  = [parseFloat(ride.start_lng), parseFloat(ride.start_lat)];
+        const endCoord    = [parseFloat(ride.end_lng),   parseFloat(ride.end_lat)];
         const pickupCoord = [pickup_lng, pickup_lat];
 
-        // Use PostGIS route length as the original distance
-        const originalDistance = routeLength;
-
-        // ORS call: route via pickup
         const detourDistance = await getORSRouteDistance([startCoord, pickupCoord, endCoord]);
 
-        if (detourDistance !== null && originalDistance > 0) {
-          const extraDistance = Math.max(0, detourDistance - originalDistance);
+        if (detourDistance !== null && routeLength > 0) {
+          const extraDistance = Math.max(0, detourDistance - routeLength);
           detourExtraMeters = Math.round(extraDistance);
-          const detourRatio = extraDistance / originalDistance;
+          const detourRatio = extraDistance / routeLength;
           detourPercent = Math.round(detourRatio * 100);
-
-          // Score: 1.0 = no detour, 0.0 at 20%+ detour
-          // Linear decay: every 1% detour loses 5% score
           detourScore = Math.max(0, Math.min(1, 1 - detourRatio * 5));
           confidenceFactors.push('detour');
         }
 
-        // Rate limit: 250ms between ORS calls
         await sleep(250);
-      } catch (err) {
-        // ORS failed — handled below with fallback
-      }
+      } catch (err) { /* handled by fallback below */ }
 
-      // Fallback: approximate detour from straight-line pickup distance
       if (detourScore === null) {
-        // Rough heuristic: if pickup is 500m from route, assume ~1km detour
         const estimatedDetour = pickupDist * 2;
         const estimatedRatio = routeLength > 0 ? estimatedDetour / routeLength : 1;
         detourScore = Math.max(0, Math.min(1, 1 - estimatedRatio * 5));
@@ -272,137 +232,107 @@ router.post('/find', verifyToken, async (req, res) => {
       }
 
       // ── FACTOR 2: Pickup Position on Route (25%) ──
-      //
-      // Where the pickup falls along the driver's route.
-      // Early pickup (fraction < 0.3) = great, driver hasn't gone far yet.
-      // Mid pickup (0.3–0.6) = good.
-      // Late pickup (0.6–0.8) = penalized, driver is close to SCT.
-      // Very late (> 0.8) = heavily penalized, almost pointless.
-      // ─────────────────────────────────────────
-      let positionScore;
+      let posScore;
       let positionLabel;
 
       if (isNaN(routeFraction)) {
-        positionScore = 0.5; // unknown, neutral
+        posScore = 0.5;
         positionLabel = 'Unknown';
       } else if (routeFraction < 0.3) {
-        positionScore = 1.0;
+        posScore = 1.0;
         positionLabel = 'Early on route';
         confidenceFactors.push('position');
       } else if (routeFraction < 0.6) {
-        positionScore = 0.85;
+        posScore = 0.85;
         positionLabel = 'Mid route';
         confidenceFactors.push('position');
       } else if (routeFraction < 0.8) {
-        // Gradual decay from 0.6 to 0.3
-        positionScore = 0.6 - (routeFraction - 0.6) * 1.5;
+        posScore = 0.6 - (routeFraction - 0.6) * 1.5;
         positionLabel = 'Late on route';
         confidenceFactors.push('position');
       } else {
-        // Sharp penalty — driver is almost at SCT
-        positionScore = Math.max(0.05, 0.3 - (routeFraction - 0.8) * 1.5);
+        posScore = Math.max(0.05, 0.3 - (routeFraction - 0.8) * 1.5);
         positionLabel = 'Near destination';
         confidenceFactors.push('position');
       }
 
       // ── FACTOR 3: Time Compatibility (20%) ──
-      //
-      // Sigmoid curve centered at 30 minutes:
-      //   0–10 min → score ~1.0  (perfect)
-      //   20 min   → score ~0.82
-      //   30 min   → score ~0.50
-      //   45 min   → score ~0.09
-      //   60+ min  → score ~0.01
-      // ─────────────────────────────────────────
-      const rideTime = new Date(ride.departure_time).getTime();
-      const requestedTime = new Date(departure_time).getTime();
-      const timeDiffMin = Math.abs(rideTime - requestedTime) / 60000;
+      const timeDiffMin = Math.abs(
+        new Date(ride.departure_time).getTime() - new Date(departure_time).getTime()
+      ) / 60000;
       const timeScore = sigmoidTimeScore(timeDiffMin);
-
       if (timeDiffMin <= 120) confidenceFactors.push('time');
 
-      // ── FACTOR 4: Proximity to Route (15%) ──
-      //
-      // How far the pickup is from the driver's route.
-      // Linear decay from 0m (score 1.0) to 3000m (score 0.0).
-      // ─────────────────────────────────────────
-      const proximityScore = Math.max(0, 1 - (pickupDist / 3000));
-      if (pickupDist <= 3000) confidenceFactors.push('proximity');
+      // ── FACTOR 4: Proximity (15%) ──
+      // Exponential decay — half-life 3 km. No hard floor.
+      // 0 m → 1.0 | 1 km → 0.79 | 3 km → 0.50 | 5 km → 0.32 | 10 km → 0.10 | 20 km → 0.01
+      const proxScore = proximityScore(pickupDist);
+      confidenceFactors.push('proximity'); // always computable
 
       // ── WEIGHTED FINAL SCORE ──
       const finalScore =
         (detourScore * WEIGHTS.detour) +
-        (positionScore * WEIGHTS.position) +
-        (timeScore * WEIGHTS.time) +
-        (proximityScore * WEIGHTS.proximity);
+        (posScore     * WEIGHTS.position) +
+        (timeScore    * WEIGHTS.time) +
+        (proxScore    * WEIGHTS.proximity);
 
-      // ── CONFIDENCE LABEL ──
-      // Based on how many factors were reliably computed
+      // ── CONFIDENCE ──
       let confidence;
       if (confidenceFactors.length >= 4) confidence = 'high';
       else if (confidenceFactors.length >= 3) confidence = 'medium';
       else confidence = 'low';
 
-      // ── TIME LABEL (human-friendly) ──
+      // ── HUMAN LABELS ──
       let timeLabel;
-      if (timeDiffMin < 5) timeLabel = 'Same time';
-      else if (timeDiffMin < 60) timeLabel = `${Math.round(timeDiffMin)} min apart`;
-      else timeLabel = `${Math.round(timeDiffMin / 60)}h+ apart`;
+      if (timeDiffMin < 5)        timeLabel = 'Same time';
+      else if (timeDiffMin < 60)  timeLabel = `${Math.round(timeDiffMin)} min apart`;
+      else                        timeLabel = `${Math.round(timeDiffMin / 60)}h+ apart`;
 
-      // ── DETOUR LABEL ──
       let detourLabel;
-      if (detourExtraMeters === null || detourExtraMeters === 0) {
-        detourLabel = 'On route';
-      } else if (detourExtraMeters < 500) {
-        detourLabel = 'Minimal detour';
-      } else {
-        detourLabel = `+${(detourExtraMeters / 1000).toFixed(1)} km detour`;
-      }
+      if (!detourExtraMeters || detourExtraMeters === 0) detourLabel = 'On route';
+      else if (detourExtraMeters < 500)                  detourLabel = 'Minimal detour';
+      else                                               detourLabel = `+${(detourExtraMeters / 1000).toFixed(1)} km detour`;
+
+      // Distance label for UI (shows how far the route is from pickup)
+      let distanceLabel;
+      if (pickupDist < 500)       distanceLabel = 'Very close';
+      else if (pickupDist < 2000) distanceLabel = `${Math.round(pickupDist / 100) * 100}m away`;
+      else                        distanceLabel = `${(pickupDist / 1000).toFixed(1)} km away`;
 
       scoredResults.push({
-        ride_id: ride.id,
-        driver_name: ride.driver_name,
-        start_location: ride.start_location,
-        end_location: ride.end_location,
-        departure_time: ride.departure_time,
-        available_seats: ride.available_seats,
-
-        // Overall match
-        compatibility_score: Math.round(finalScore * 100),
+        ride_id:               ride.id,
+        driver_name:           ride.driver_name,
+        start_location:        ride.start_location,
+        end_location:          ride.end_location,
+        departure_time:        ride.departure_time,
+        available_seats:       ride.available_seats,
+        compatibility_score:   Math.round(finalScore * 100),
         confidence,
-
-        // Human-readable labels for frontend
         pickup_distance_meters: Math.round(pickupDist),
-        detour_label: detourLabel,
-        detour_extra_meters: detourExtraMeters,
-        position_label: positionLabel,
-        time_label: timeLabel,
-        time_diff_minutes: Math.round(timeDiffMin),
-
-        // Detailed breakdown (for tooltip or debug)
+        distance_label:        distanceLabel,
+        detour_label:          detourLabel,
+        detour_extra_meters:   detourExtraMeters,
+        position_label:        positionLabel,
+        time_label:            timeLabel,
+        time_diff_minutes:     Math.round(timeDiffMin),
         score_breakdown: {
-          detour: Math.round(detourScore * 100),
-          position: Math.round(positionScore * 100),
-          time: Math.round(timeScore * 100),
-          proximity: Math.round(proximityScore * 100)
+          detour:    Math.round(detourScore * 100),
+          position:  Math.round(posScore * 100),
+          time:      Math.round(timeScore * 100),
+          proximity: Math.round(proxScore * 100)
         }
       });
     }
 
     // ──────────────────────────────────────────
-    // STEP 4 — Sort & filter
+    // STEP 4 — Sort (no score floor — every match is shown)
     // ──────────────────────────────────────────
     scoredResults.sort((a, b) => b.compatibility_score - a.compatibility_score);
 
-    // Remove matches below 15% — essentially useless
-    const filtered = scoredResults.filter(m => m.compatibility_score >= 15);
-
     res.json({
-      matches: filtered,
+      matches: scoredResults,
       total_candidates: candidateQuery.rows.length,
-      message: filtered.length === 0
-        ? 'Rides were found nearby but none are a good match for your route and timing.'
-        : `Found ${filtered.length} compatible ride${filtered.length > 1 ? 's' : ''}.`
+      message: `Found ${scoredResults.length} compatible ride${scoredResults.length !== 1 ? 's' : ''}.`
     });
 
   } catch (err) {

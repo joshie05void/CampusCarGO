@@ -21,6 +21,9 @@ const verifyToken = (req, res, next) => {
 router.post('/post', verifyToken, async (req, res) => {
   if (req.user.role !== 'driver') return res.status(403).json({ error: 'Only drivers can post rides' });
   const { start_location, end_location, departure_time, available_seats, start_lat, start_lng, end_lat, end_lng } = req.body;
+  if (!start_location || !departure_time || !available_seats || start_lat == null || start_lng == null) {
+    return res.status(400).json({ error: 'Missing required fields.' });
+  }
   try {
     const orsResponse = await axios.post(
       'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
@@ -56,7 +59,32 @@ router.get('/available', verifyToken, async (req, res) => {
 router.post('/request', verifyToken, async (req, res) => {
   if (req.user.role !== 'passenger') return res.status(403).json({ error: 'Only passengers can request rides' });
   const { ride_id, pickup_location, dropoff_location } = req.body;
+  if (!ride_id || !pickup_location) return res.status(400).json({ error: 'ride_id and pickup_location are required.' });
   try {
+    // Check ride exists and has seats
+    const ride = await pool.query(
+      `SELECT id, available_seats, status FROM rides WHERE id = $1`,
+      [ride_id]
+    );
+    if (ride.rows.length === 0) {
+      return res.status(404).json({ error: 'Ride not found.' });
+    }
+    if (ride.rows[0].status !== 'active') {
+      return res.status(400).json({ error: 'This ride is no longer active.' });
+    }
+    if (ride.rows[0].available_seats <= 0) {
+      return res.status(400).json({ error: 'No seats available on this ride.' });
+    }
+
+    // Check for duplicate request
+    const existing = await pool.query(
+      `SELECT id FROM ride_requests WHERE ride_id = $1 AND passenger_id = $2 AND status != 'rejected'`,
+      [ride_id, req.user.id]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'You have already requested this ride.' });
+    }
+
     const result = await pool.query(
       'INSERT INTO ride_requests (ride_id, passenger_id, pickup_location, dropoff_location) VALUES ($1, $2, $3, $4) RETURNING *',
       [ride_id, req.user.id, pickup_location, dropoff_location]
@@ -67,7 +95,7 @@ router.post('/request', verifyToken, async (req, res) => {
   }
 });
 
-// Get all requests for the driver's rides
+// Get all pending requests for the driver's rides
 router.get('/requests', verifyToken, async (req, res) => {
   if (req.user.role !== 'driver') return res.status(403).json({ error: 'Only drivers can view requests' });
   try {
@@ -89,14 +117,22 @@ router.get('/requests', verifyToken, async (req, res) => {
 // Accept or reject a request (driver only)
 router.post('/respond', verifyToken, async (req, res) => {
   if (req.user.role !== 'driver') return res.status(403).json({ error: 'Only drivers can respond to requests' });
-  const { request_id, action } = req.body; // action = 'accepted' or 'rejected'
+  const { request_id, action } = req.body;
   if (!['accepted', 'rejected'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
   try {
-    await pool.query(
-      'UPDATE ride_requests SET status = $1 WHERE id = $2',
-      [action, request_id]
+    // Verify the request belongs to one of this driver's rides
+    const check = await pool.query(
+      `SELECT rr.id FROM ride_requests rr
+       JOIN rides r ON rr.ride_id = r.id
+       WHERE rr.id = $1 AND r.driver_id = $2`,
+      [request_id, req.user.id]
     );
-    // If accepted, reduce available seats
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: 'Request not found.' });
+    }
+
+    await pool.query('UPDATE ride_requests SET status = $1 WHERE id = $2', [action, request_id]);
+
     if (action === 'accepted') {
       await pool.query(
         `UPDATE rides SET available_seats = available_seats - 1
@@ -129,6 +165,7 @@ router.get('/mystatus', verifyToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 // Get all rides posted by the driver
 router.get('/myrides', verifyToken, async (req, res) => {
   if (req.user.role !== 'driver') return res.status(403).json({ error: 'Only drivers can view their rides' });
@@ -147,13 +184,21 @@ router.get('/myrides', verifyToken, async (req, res) => {
 router.delete('/delete/:id', verifyToken, async (req, res) => {
   if (req.user.role !== 'driver') return res.status(403).json({ error: 'Only drivers can delete rides' });
   try {
-    await pool.query(
-      `DELETE FROM rides WHERE id = $1 AND driver_id = $2`,
+    // Verify ownership before deleting
+    const check = await pool.query(
+      `SELECT id FROM rides WHERE id = $1 AND driver_id = $2`,
       [req.params.id, req.user.id]
     );
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: 'Ride not found or you do not own this ride.' });
+    }
+    // Delete associated requests first to satisfy FK constraint
+    await pool.query(`DELETE FROM ride_requests WHERE ride_id = $1`, [req.params.id]);
+    await pool.query(`DELETE FROM rides WHERE id = $1`, [req.params.id]);
     res.json({ message: 'Ride deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 module.exports = router;
