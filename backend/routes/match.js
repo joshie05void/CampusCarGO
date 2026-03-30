@@ -129,7 +129,8 @@ router.post('/find', verifyToken, async (req, res) => {
          ST_X(ST_StartPoint(route_polyline)) AS start_lng,
          ST_Y(ST_StartPoint(route_polyline)) AS start_lat,
          ST_X(ST_EndPoint(route_polyline)) AS end_lng,
-         ST_Y(ST_EndPoint(route_polyline)) AS end_lat
+         ST_Y(ST_EndPoint(route_polyline)) AS end_lat,
+         (SELECT ROUND(AVG(stars)::numeric, 1) FROM ratings WHERE ratee_id = rides.driver_id) AS driver_avg_rating
        FROM rides
        JOIN users ON rides.driver_id = users.id
        WHERE rides.status = 'active'
@@ -315,6 +316,7 @@ router.post('/find', verifyToken, async (req, res) => {
         position_label:        positionLabel,
         time_label:            timeLabel,
         time_diff_minutes:     Math.round(timeDiffMin),
+        driver_avg_rating:     ride.driver_avg_rating ? parseFloat(ride.driver_avg_rating) : null,
         score_breakdown: {
           detour:    Math.round(detourScore * 100),
           position:  Math.round(posScore * 100),
