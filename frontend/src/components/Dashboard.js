@@ -99,7 +99,7 @@ export default function Dashboard({ token, role, onLogout }) {
         dropoff_lat: SCT.lat, dropoff_lng: SCT.lng, departure_time: departureTime,
       }, { headers: { Authorization: token } });
       setMatches(res.data.matches);
-      if (res.data.matches.length === 0) showMessage('No rides found near your location.', 'error');
+      if (res.data.matches.length === 0) showMessage(res.data.message || 'No rides found near your location.', 'error');
       else setMessage('');
     } catch (err) { showMessage(err.response?.data?.error || 'Error finding rides', 'error'); }
     setLoading(false);
@@ -373,14 +373,6 @@ export default function Dashboard({ token, role, onLogout }) {
               <div style={{ fontSize: '17px', fontWeight: '600', color: C.text }}>
                 {matches.length} ride{matches.length > 1 ? 's' : ''} found
               </div>
-              {matches[0]?.expanded_radius && (
-                <div style={{
-                  fontSize: '12px', color: C.accent, background: C.subtle,
-                  border: `1px solid ${C.border}`, borderRadius: '4px', padding: '3px 8px',
-                }}>
-                  Expanded search area
-                </div>
-              )}
             </div>
 
             {matches.map((m, i) => {
@@ -413,7 +405,7 @@ export default function Dashboard({ token, role, onLogout }) {
                   {[
                     { icon: '🕐', text: m.time_label || new Date(m.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
                     { icon: '💺', text: `${m.available_seats} seat${m.available_seats !== 1 ? 's' : ''}` },
-                    { icon: '📍', text: `${m.pickup_distance_meters}m away` },
+                    { icon: '📍', text: m.distance_label || `${m.pickup_distance_meters}m away` },
                     { icon: '🛣️', text: m.detour_label || 'On route' },
                     { icon: '📌', text: m.position_label || '' },
                   ].filter(c => c.text).map((chip, j) => (
