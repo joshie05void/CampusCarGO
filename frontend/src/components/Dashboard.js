@@ -383,44 +383,77 @@ export default function Dashboard({ token, role, onLogout }) {
               )}
             </div>
 
-            {matches.map((m, i) => (
+            {matches.map((m, i) => {
+              const scoreColor = m.compatibility_score >= 60 ? C.successText : m.compatibility_score >= 35 ? C.accent : C.errorText;
+              const confColor = m.confidence === 'high' ? C.successText : m.confidence === 'medium' ? C.accent : C.errorText;
+              const confBg = m.confidence === 'high' ? C.successBg : m.confidence === 'medium' ? C.subtle : C.errorBg;
+
+              return (
               <div key={i} style={{ ...card, padding: '18px', marginBottom: '10px' }}>
-                {/* Header */}
+                {/* Header: driver + score + confidence */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                   <div>
                     <div style={{ fontWeight: '600', fontSize: '15px', color: C.text }}>{m.driver_name}</div>
                     <div style={{ color: C.muted, fontSize: '13px', marginTop: '2px' }}>From: {m.start_location}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '18px', fontWeight: '700', color: C.accent }}>
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: scoreColor }}>
                       {m.compatibility_score}%
                     </div>
-                    <div style={{
-                      fontSize: '11px', fontWeight: '600', marginTop: '2px',
-                      color: m.confidence === 'High' ? C.successText : m.confidence === 'Medium' ? C.accent : C.errorText,
-                    }}>
-                      {m.confidence} confidence
-                    </div>
+                    <span style={{
+                      background: confBg, color: confColor,
+                      padding: '2px 8px', borderRadius: '4px',
+                      fontSize: '11px', fontWeight: '600', textTransform: 'uppercase',
+                    }}>{m.confidence}</span>
                   </div>
                 </div>
 
-                {/* Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+                {/* Info chips */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
                   {[
-                    { label: 'Departure', value: new Date(m.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
-                    { label: 'Seats',     value: `${m.available_seats} left` },
-                    { label: 'Pickup dist.', value: `${m.pickup_distance_meters}m` },
-                    { label: 'Detour',    value: m.detour_meters !== null ? `+${m.detour_meters}m` : 'N/A' },
-                  ].map((item, j) => (
-                    <div key={j} style={{
-                      background: C.subtle, borderRadius: '6px',
-                      padding: '10px 8px', border: `1px solid ${C.borderLight}`,
-                    }}>
-                      <div style={{ fontSize: '11px', color: C.faint, marginBottom: '3px' }}>{item.label}</div>
-                      <div style={{ fontWeight: '600', fontSize: '13px', color: C.text }}>{item.value}</div>
-                    </div>
+                    { icon: '🕐', text: m.time_label || new Date(m.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+                    { icon: '💺', text: `${m.available_seats} seat${m.available_seats !== 1 ? 's' : ''}` },
+                    { icon: '📍', text: `${m.pickup_distance_meters}m away` },
+                    { icon: '🛣️', text: m.detour_label || 'On route' },
+                    { icon: '📌', text: m.position_label || '' },
+                  ].filter(c => c.text).map((chip, j) => (
+                    <span key={j} style={{
+                      background: C.subtle, padding: '4px 10px', borderRadius: '20px',
+                      fontSize: '12px', color: C.muted, whiteSpace: 'nowrap',
+                      border: `1px solid ${C.borderLight}`,
+                    }}>{chip.icon} {chip.text}</span>
                   ))}
                 </div>
+
+                {/* Score breakdown bars */}
+                {m.score_breakdown && (
+                  <div style={{
+                    background: C.subtle, borderRadius: '8px', padding: '12px',
+                    marginBottom: '14px', border: `1px solid ${C.borderLight}`,
+                  }}>
+                    <div style={{ fontSize: '12px', color: C.muted, marginBottom: '8px', fontWeight: '600' }}>Score Breakdown</div>
+                    {[
+                      { label: 'Detour Cost', value: m.score_breakdown.detour, weight: '40%' },
+                      { label: 'Route Position', value: m.score_breakdown.position, weight: '25%' },
+                      { label: 'Time Match', value: m.score_breakdown.time, weight: '20%' },
+                      { label: 'Proximity', value: m.score_breakdown.proximity, weight: '15%' },
+                    ].map((bar, k) => (
+                      <div key={k} style={{ marginBottom: k < 3 ? '6px' : 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: C.faint, marginBottom: '3px' }}>
+                          <span>{bar.label} <span style={{ color: C.borderLight }}>({bar.weight})</span></span>
+                          <span style={{ fontWeight: '600', color: C.muted }}>{bar.value}%</span>
+                        </div>
+                        <div style={{ height: '4px', background: C.borderLight, borderRadius: '2px', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${bar.value}%`, height: '100%', borderRadius: '2px',
+                            background: bar.value >= 60 ? C.successText : bar.value >= 35 ? C.accent : C.errorText,
+                            transition: 'width 0.5s ease',
+                          }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <button onClick={() => handleRequestRide(m.ride_id)} style={{
                   width: '100%', padding: '10px',
@@ -430,7 +463,8 @@ export default function Dashboard({ token, role, onLogout }) {
                   transition: 'background 0.15s',
                 }}>Request ride</button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
