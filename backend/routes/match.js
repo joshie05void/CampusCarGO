@@ -38,8 +38,7 @@ function timeScore(diffMinutes) {
 function detourScore(extraMeters, originalRouteMeters) {
   if (!originalRouteMeters || originalRouteMeters <= 0) return 0.5;
   const ratio = extraMeters / originalRouteMeters;
-  return Math.max(0, 1 - ratio * 2);
-}
+return Math.max(0, 1 - ratio * 1);}
 
 // Pickup-position score: where along the route (0=start, 1=end/SCT) is the pickup?
 // Ideal range 0.05–0.80. If pickup is in the last 20% of the route (driver almost
