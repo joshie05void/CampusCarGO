@@ -434,8 +434,8 @@ export default function Dashboard({ token, role, onLogout }) {
       if (Math.abs(m.time_diff_minutes ?? 0) > filters.timeWindow) return false;
     }
     if (m.compatibility_score < filters.minScore) return false;
-    if (filters.minRating > 0 && m.driver_avg_rating !== null) {
-      if (Number(m.driver_avg_rating) < filters.minRating) return false;
+    if (filters.minRating > 0) {
+      if (m.driver_avg_rating === null || Number(m.driver_avg_rating) < filters.minRating) return false;
     }
     return true;
   });
@@ -808,12 +808,50 @@ export default function Dashboard({ token, role, onLogout }) {
 
               <div style={{ marginBottom: '18px' }}>
                 <label style={labelStyle}>Departure time</label>
-                <input
-                  type="datetime-local" value={departureTime}
-                  onChange={e => setDepartureTime(e.target.value)}
-                  style={{ ...inputStyle, colorScheme: 'dark' }}
-                  onFocus={focusInput} onBlur={blurInput}
-                />
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <input
+                    type="date"
+                    value={departureTime ? departureTime.split('T')[0] : ''}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={e => {
+                      const d = e.target.value;
+                      const t = departureTime ? departureTime.split('T')[1] : '08:00';
+                      setDepartureTime(d ? `${d}T${t}` : '');
+                    }}
+                    style={{ ...inputStyle, flex: 1, colorScheme: 'dark' }}
+                    onFocus={focusInput} onBlur={blurInput}
+                  />
+                  <input
+                    type="time"
+                    value={departureTime ? departureTime.split('T')[1] : ''}
+                    onChange={e => {
+                      const t = e.target.value;
+                      const d = departureTime ? departureTime.split('T')[0] : new Date().toISOString().split('T')[0];
+                      setDepartureTime(t ? `${d}T${t}` : '');
+                    }}
+                    style={{ ...inputStyle, flex: '0 0 110px', colorScheme: 'dark' }}
+                    onFocus={focusInput} onBlur={blurInput}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {['07:00', '07:30', '08:00', '08:30', '09:00', '09:30'].map(t => {
+                    const d = departureTime ? departureTime.split('T')[0] : new Date().toISOString().split('T')[0];
+                    const active = departureTime && departureTime.split('T')[1] === t;
+                    return (
+                      <button key={t} onClick={() => setDepartureTime(`${d}T${t}`)}
+                        style={{
+                          padding: '4px 10px', borderRadius: '20px', fontSize: '11px', cursor: 'pointer',
+                          border: `1px solid ${active ? C.accent : C.border}`,
+                          background: active ? C.accentDim : 'transparent',
+                          color: active ? C.accent : C.faint,
+                          fontWeight: active ? '700' : '400',
+                          fontFamily: 'Manrope, sans-serif',
+                          transition: 'all 0.12s',
+                        }}
+                      >{t}</button>
+                    );
+                  })}
+                </div>
               </div>
 
               {role === 'driver' && (
@@ -1223,6 +1261,20 @@ export default function Dashboard({ token, role, onLogout }) {
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '22px', fontWeight: '600', color: C.text }}>
                     {filteredMatches.length} ride{filteredMatches.length !== 1 ? 's' : ''} found
                   </div>
+                  <button
+                    onClick={() => { setMatches([]); setFilters({ maxDist: 5000, timeWindow: null, minScore: 0, minRating: 0 }); setExpandedMatchId(null); setMessage(''); }}
+                    style={{
+                      padding: '6px 14px', borderRadius: '20px', fontSize: '12px', cursor: 'pointer',
+                      background: 'transparent',
+                      border: `1px solid ${C.border}`,
+                      color: C.faint,
+                      fontWeight: '600', letterSpacing: '0.3px',
+                      fontFamily: 'Manrope, sans-serif',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.errorBorder; e.currentTarget.style.color = C.errorText; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.faint; }}
+                  >✕ Clear</button>
                 </div>
 
                 {filteredMatches.map((m, i) => {
