@@ -38,11 +38,11 @@ export default function Login({ onLogin }) {
   const inputBase = {
     width: '100%',
     padding: '12px 14px',
-    background: '#f8f7ff',
-    border: '1px solid #e8e6f8',
+    background: '#F2DDBC',
+    border: '1px solid #DDD0B3',
     borderRadius: '9px',
     fontSize: '14px',
-    color: '#1a1833',
+    color: '#102C26',
     outline: 'none',
     marginBottom: '12px',
     boxSizing: 'border-box',
@@ -50,11 +50,11 @@ export default function Login({ onLogin }) {
   };
 
   const focusInput  = (e) => {
-    e.target.style.borderColor = '#5b5bff';
-    e.target.style.boxShadow   = '0 0 0 3px rgba(91,91,255,0.12)';
+    e.target.style.borderColor = '#102C26';
+    e.target.style.boxShadow   = '0 0 0 3px rgba(16,44,38,0.12)';
   };
   const blurInput   = (e) => {
-    e.target.style.borderColor = '#e8e6f8';
+    e.target.style.borderColor = '#DDD0B3';
     e.target.style.boxShadow   = 'none';
   };
 
@@ -73,20 +73,20 @@ export default function Login({ onLogin }) {
       {/* Wordmark */}
       <div style={{ textAlign: 'center', marginBottom: '36px', animation: 'fadeUp 0.5s ease both' }}>
         <div style={{
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          fontFamily: "'Montserrat', sans-serif",
           fontSize: '38px',
           fontWeight: '800',
           letterSpacing: '-1px',
-          color: '#1a1833',
+          color: '#102C26',
           lineHeight: 1,
           marginBottom: '8px',
         }}>
-          Campus<span style={{ color: '#5b5bff' }}>Car</span>GO
+          Campus<span style={{ color: '#4A6A5E' }}>Car</span>GO
         </div>
         <div style={{
           fontSize: '11px',
           letterSpacing: '3px',
-          color: '#9999bb',
+          color: '#8AAA9E',
           textTransform: 'uppercase',
           fontWeight: '600',
         }}>
@@ -98,11 +98,11 @@ export default function Login({ onLogin }) {
       <div style={{
         width: '100%',
         maxWidth: '420px',
-        background: '#ffffff',
-        border: '1px solid #e8e6f8',
+        background: '#FEFAF3',
+        border: '1px solid #DDD0B3',
         borderRadius: '18px',
         padding: '28px',
-        boxShadow: '0 8px 32px rgba(91,91,255,0.08), 0 2px 8px rgba(0,0,0,0.04)',
+        boxShadow: '0 8px 32px rgba(16,44,38,0.10), 0 2px 8px rgba(0,0,0,0.04)',
         animation: 'fadeUp 0.5s 0.08s ease both',
       }}>
 
@@ -110,14 +110,14 @@ export default function Login({ onLogin }) {
         <div style={{
           display: 'flex',
           gap: '4px',
-          background: '#f8f7ff',
-          border: '1px solid #e8e6f8',
+          background: '#F2DDBC',
+          border: '1px solid #DDD0B3',
           borderRadius: '10px',
           padding: '4px',
           marginBottom: '24px',
         }}>
           {[
-            { label: 'Sign in',       value: false },
+            { label: 'Sign in',        value: false },
             { label: 'Create account', value: true  },
           ].map(t => (
             <button
@@ -128,13 +128,13 @@ export default function Login({ onLogin }) {
                 padding: '9px 12px',
                 border: 'none',
                 borderRadius: '7px',
-                background: isRegister === t.value ? '#5b5bff' : 'transparent',
-                color: isRegister === t.value ? '#ffffff' : '#9999bb',
+                background: isRegister === t.value ? '#102C26' : 'transparent',
+                color: isRegister === t.value ? '#F7E7CE' : '#8AAA9E',
                 fontWeight: isRegister === t.value ? '700' : '500',
                 fontSize: '13px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontFamily: "'Montserrat', sans-serif",
               }}
             >{t.label}</button>
           ))}
@@ -165,7 +165,7 @@ export default function Login({ onLogin }) {
         {/* Role selector */}
         {isRegister && (
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '11px', color: '#9999bb', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '10px' }}>
+            <div style={{ fontSize: '11px', color: '#8AAA9E', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '10px' }}>
               I am a
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -175,16 +175,16 @@ export default function Login({ onLogin }) {
               ].map(r => (
                 <button key={r.value} onClick={() => setRole(r.value)} style={{
                   padding: '12px 10px',
-                  border: `1px solid ${role === r.value ? '#5b5bff' : '#e8e6f8'}`,
+                  border: `1px solid ${role === r.value ? '#102C26' : '#DDD0B3'}`,
                   borderRadius: '9px',
-                  background: role === r.value ? '#eeeeff' : '#f8f7ff',
-                  color: role === r.value ? '#5b5bff' : '#9999bb',
+                  background: role === r.value ? '#D4E8E2' : '#F2DDBC',
+                  color: role === r.value ? '#102C26' : '#8AAA9E',
                   fontWeight: '600',
                   fontSize: '13px',
                   cursor: 'pointer',
                   transition: 'all 0.18s',
-                  boxShadow: role === r.value ? '0 0 0 1px #5b5bff' : 'none',
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  boxShadow: role === r.value ? '0 0 0 1px #102C26' : 'none',
+                  fontFamily: "'Montserrat', sans-serif",
                 }}>
                   <div style={{ fontSize: '20px', marginBottom: '4px' }}>{r.icon}</div>
                   {r.label}
@@ -198,17 +198,17 @@ export default function Login({ onLogin }) {
         {error && (
           <div style={{
             padding: '10px 14px', borderRadius: '8px', marginBottom: '14px',
-            background: 'rgba(251,113,133,0.08)',
-            border: '1px solid rgba(251,113,133,0.2)',
-            color: '#fb7185', fontSize: '13px',
+            background: 'rgba(220,38,38,0.08)',
+            border: '1px solid rgba(220,38,38,0.2)',
+            color: '#dc2626', fontSize: '13px',
           }}>{error}</div>
         )}
         {success && (
           <div style={{
             padding: '10px 14px', borderRadius: '8px', marginBottom: '14px',
-            background: 'rgba(74,222,128,0.08)',
-            border: '1px solid rgba(74,222,128,0.2)',
-            color: '#4ade80', fontSize: '13px',
+            background: 'rgba(22,163,74,0.08)',
+            border: '1px solid rgba(22,163,74,0.2)',
+            color: '#16a34a', fontSize: '13px',
           }}>{success}</div>
         )}
 
@@ -219,32 +219,32 @@ export default function Login({ onLogin }) {
           style={{
             width: '100%',
             padding: '13px',
-            background: loading ? 'rgba(91,91,255,0.4)' : '#5b5bff',
-            color: '#ffffff',
+            background: loading ? 'rgba(16,44,38,0.4)' : '#102C26',
+            color: '#F7E7CE',
             border: 'none',
             borderRadius: '9px',
             fontSize: '14px',
             fontWeight: '700',
             cursor: loading ? 'not-allowed' : 'pointer',
             transition: 'all 0.2s',
-            boxShadow: loading ? 'none' : '0 4px 16px rgba(91,91,255,0.3)',
+            boxShadow: loading ? 'none' : '0 4px 16px rgba(16,44,38,0.25)',
             letterSpacing: '0.2px',
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontFamily: "'Montserrat', sans-serif",
           }}
-          onMouseEnter={e => { if (!loading) e.target.style.background = '#4444cc'; }}
-          onMouseLeave={e => { if (!loading) e.target.style.background = '#5b5bff'; }}
+          onMouseEnter={e => { if (!loading) e.target.style.background = '#0A1E1A'; }}
+          onMouseLeave={e => { if (!loading) e.target.style.background = '#102C26'; }}
         >
           {loading ? 'Please wait…' : isRegister ? 'Create account' : 'Sign in'}
         </button>
 
         {/* Switch mode text */}
-        <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13px', color: '#9999bb' }}>
+        <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13px', color: '#8AAA9E' }}>
           {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
           <button onClick={switchMode} style={{
             background: 'none', border: 'none',
-            color: '#5b5bff', fontWeight: '600',
+            color: '#102C26', fontWeight: '700',
             fontSize: '13px', cursor: 'pointer',
-            padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif",
+            padding: 0, fontFamily: "'Montserrat', sans-serif",
           }}>
             {isRegister ? 'Sign in' : 'Register'}
           </button>
@@ -255,7 +255,7 @@ export default function Login({ onLogin }) {
       <div style={{
         marginTop: '28px',
         fontSize: '11px',
-        color: '#c4c2d8',
+        color: '#C4B89A',
         letterSpacing: '0.5px',
         animation: 'fadeIn 0.5s 0.3s ease both',
       }}>
