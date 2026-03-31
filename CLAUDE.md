@@ -54,7 +54,7 @@ backend/
   db/
     migrate.js           — Run on startup: creates ratings, notifications tables; adds columns to ride_requests
   routes/
-    auth.js              — POST /api/auth/register, /api/auth/login
+    auth.js              — POST /api/auth/register, /api/auth/login, GET /api/auth/me
     rides.js             — All ride endpoints (see API Routes below)
     maps.js              — POST /api/maps/route (ORS), GET /api/maps/search (Nominatim)
     match.js             — POST /api/match/find (4-stage smart matching pipeline)
@@ -64,9 +64,9 @@ frontend/src/
   App.js                 — Token + role state; switches between Login and Dashboard
   components/
     Login.js             — Register / sign-in form
-    Dashboard.js         — Full UI for driver and passenger  ← NEEDS REWRITE (see Phase 5 task below)
-    MapPicker.js         — Leaflet map + Nominatim search; FlyToLocation sub-component
-  index.css              — Global resets, Inter font, body background (#fffbeb)
+    Dashboard.js         — Full UI for driver and passenger  ← BEING REWRITTEN (Phase 6 redesign)
+    MapPicker.js         — Leaflet map + Nominatim search; FlyToLocation sub-component (light theme)
+  index.css              — Global resets, Plus Jakarta Sans font, light lavender background (#f4f3ff)
 ```
 
 ---
@@ -135,6 +135,7 @@ frontend/src/
 ### Auth — `/api/auth`
 - `POST /register` — `{ name, reg_number, password, role }`
 - `POST /login` — `{ reg_number, password }` → `{ token, role }`
+- `GET /me` — auth required; returns `{ id, name, reg_number, role }` for the current user
 
 ### Rides — `/api/rides` *(all require auth)*
 - `POST /post` — driver only; duplicate-ride check (2h window); calls ORS for polyline
@@ -217,24 +218,58 @@ Runs every 10 minutes:
 
 All components use **inline styles** with a shared palette constant `C` at the top of each file.
 
+**Theme: Light lavender/white with indigo-purple accent. Font: Plus Jakarta Sans.**
+
 | Token | Value | Used for |
 |---|---|---|
-| `bg` | `#fffbeb` | Page background |
-| `card` | `#ffffff` | Card / input backgrounds |
-| `subtle` | `#fefce8` | Stat boxes, destination field, chip backgrounds |
-| `border` | `#fde68a` | All card & input borders |
-| `borderLight` | `#fef3c7` | Dividers, progress bar tracks |
-| `accent` | `#d97706` | Primary buttons, active states, focus rings |
-| `accentDark` | `#b45309` | Hover states |
-| `text` | `#1c1917` | Headings & body (warm dark) |
-| `muted` | `#78716c` | Secondary text |
-| `faint` | `#a8a29e` | Placeholder / tertiary text |
-| `successText` | `#15803d` | Accepted status, high confidence |
-| `errorText` | `#c0392b` | Rejected status, low confidence |
+| `bg` | `#f4f3ff` | Page background (light lavender) |
+| `sidebar` | `#ffffff` | Sidebar background |
+| `card` | `#ffffff` | Card backgrounds |
+| `surface` | `#f8f7ff` | Subtle surface, chip backgrounds |
+| `border` | `#e8e6f8` | All card & input borders |
+| `borderLight` | `#f0eeff` | Dividers, progress bar tracks |
+| `accent` | `#5b5bff` | Primary buttons, active nav, focus rings |
+| `accentDark` | `#4444cc` | Hover states |
+| `accentLight` | `#eeeeff` | Active nav background, tag backgrounds |
+| `accentDim` | `rgba(91,91,255,0.08)` | Subtle accent fill |
+| `text` | `#1a1833` | Headings & body (dark indigo-black) |
+| `muted` | `#6b6b8a` | Secondary text |
+| `faint` | `#9999bb` | Placeholder / tertiary text |
+| `successText` | `#16a34a` | Accepted, high confidence |
+| `errorText` | `#dc2626` | Rejected, low confidence |
 
-`index.css` sets `body { background: #fffbeb }` and the Inter font stack.
+`index.css` sets `body { background: #f4f3ff }` and the Plus Jakarta Sans font stack.
 
 MapPicker.js imports `leaflet/dist/leaflet.css` and fixes default icon URLs. Dashboard.js can safely import from react-leaflet without re-importing the CSS.
+
+### Layout: Sidebar Navigation (Phase 6 redesign)
+
+The new layout uses a **fixed 220px left sidebar** + scrollable main content area, replacing the previous top-navbar + tab structure.
+
+**Sidebar nav items (role-aware):**
+- All roles: Dashboard, Messages, Notifications, History, Profile
+- Driver only: Offer a Ride, My Rides
+- Passenger only: Find a Ride
+
+**Pages in Dashboard.js (replaces `activeTab`):**
+
+| Page key | Role | Content |
+|---|---|---|
+| `dashboard` | driver | Stats row (analytics) + Active Route + Pending Requests |
+| `dashboard` | passenger | Confirmed ride card (if accepted) + My Requests |
+| `find` | passenger | Search bar + Filters + Smart Matches |
+| `offer` | driver | Create Ride form + Route Preview map + Scheduled Rides table |
+| `myrides` | driver | Active Ride + Confirmed Passengers |
+| `messages` | both | Two-panel chat (conversation list + chat window) |
+| `notifications` | both | Full notifications list page |
+| `history` | both | Ride history table |
+| `profile` | both | Profile card + stats + sign out + pending ratings |
+
+**User profile** is fetched via `GET /api/auth/me` on mount → `userName`, `userRegNumber` state.
+
+**Initials avatars**: Used for user, driver/passenger cards, conversation list (derived from name with color based on first char).
+
+**Score circle**: SVG donut ring for compatibility % on match cards.
 
 ---
 
