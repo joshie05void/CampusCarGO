@@ -116,8 +116,14 @@ export default function Dashboard({ token, role, onLogout }) {
     fetchNotifications();
     fetchPendingRatings();
     fetchHistory();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    // Poll notifications every 30s, ride data every 15s (Issue 2 — auto-refresh)
+    const notifInterval = setInterval(fetchNotifications, 30000);
+    const rideInterval = setInterval(() => {
+      if (role === 'driver') { fetchRequests(); fetchMyRides(); }
+      if (role === 'passenger') fetchMyStatus();
+      fetchPendingRatings();
+    }, 15000);
+    return () => { clearInterval(notifInterval); clearInterval(rideInterval); };
   }, []);
 
   // Feature 6 — close notif dropdown on outside click
@@ -305,8 +311,11 @@ export default function Dashboard({ token, role, onLogout }) {
     try {
       await axios.post(`http://localhost:5000/api/rides/complete/${rideId}`, {}, { headers: { Authorization: token } });
       showMessage('Ride completed.', 'success');
+      // Refresh rides, then immediately fetch pending ratings so the rating prompt appears for the driver
       fetchMyRides();
-      fetchPendingRatings();
+      await fetchPendingRatings();
+      setRatingStars(0);
+      setRatingHover(0);
     } catch (err) { showMessage(err.response?.data?.error || 'Error completing ride', 'error'); }
   };
 
@@ -391,20 +400,17 @@ export default function Dashboard({ token, role, onLogout }) {
     }
   }, [chatMessages]);
 
-  // Auto-select ride for passengers when they open chat
+  // Open chat — once open, only the Close Chat button (×) can close it (Issue 1)
   const handleToggleChat = () => {
-    if (!chatOpen) {
-      if (role === 'passenger') {
-        const accepted = myStatus.find(
-          r => r.status === 'accepted' && !['completed', 'expired'].includes(r.ride_status)
-        );
-        if (accepted) handleOpenChat(accepted.ride_id);
-        else setChatOpen(true);
-      } else {
-        setChatOpen(true);
-      }
+    if (chatOpen) return; // already open — do nothing, use × to close
+    if (role === 'passenger') {
+      const accepted = myStatus.find(
+        r => r.status === 'accepted' && !['completed', 'expired'].includes(r.ride_status)
+      );
+      if (accepted) handleOpenChat(accepted.ride_id);
+      else setChatOpen(true);
     } else {
-      setChatOpen(false);
+      setChatOpen(true);
     }
   };
 
@@ -524,11 +530,12 @@ export default function Dashboard({ token, role, onLogout }) {
             {role === 'driver' ? 'Driver' : 'Passenger'}
           </span>
 
-          {/* Chat toggle button */}
+          {/* Chat button — opens chat; close via the Close Chat button inside the panel */}
           <button onClick={handleToggleChat} style={{
             position: 'relative', padding: '7px 12px', background: chatOpen ? C.accent : C.card,
             border: `1px solid ${chatOpen ? C.accent : C.border}`, borderRadius: '6px',
-            fontSize: '13px', color: chatOpen ? 'white' : C.muted, cursor: 'pointer',
+            fontSize: '13px', color: chatOpen ? 'white' : C.muted,
+            cursor: chatOpen ? 'default' : 'pointer',
           }}>
             💬
           </button>
@@ -1365,9 +1372,11 @@ export default function Dashboard({ token, role, onLogout }) {
           }}>
             <div style={{ fontWeight: '600', fontSize: '14px', color: C.text }}>Chat</div>
             <button onClick={() => setChatOpen(false)} style={{
-              background: 'none', border: 'none', color: C.faint,
-              cursor: 'pointer', fontSize: '20px', lineHeight: 1, padding: '2px 4px',
-            }}>×</button>
+              background: C.card, border: `1px solid ${C.border}`,
+              borderRadius: '6px', color: C.muted,
+              cursor: 'pointer', fontSize: '12px', fontWeight: '500',
+              padding: '4px 10px',
+            }}>Close Chat</button>
           </div>
 
           {/* Driver: ride selector */}
