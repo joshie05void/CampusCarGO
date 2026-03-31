@@ -445,36 +445,36 @@ Work in three batches. After each batch:
 
 ---
 
-### Batch 1 — implement these 5 features, then stop
+### Batch 1 — implement these 5 features, then stop ✅ DONE
 
-- [ ] **Feature 1** — Confirmed Ride Screen (Passenger): full confirmed ride card for accepted requests (driver name, departure time, pickup location, wait time, driver avg rating, Cancel button)
-- [ ] **Feature 2** — Confirmed Passengers List (Driver): expandable passenger list per ride, numbered by pickup order, pickup distance, total detour estimate, Mark as Started / Mark as Completed buttons
-- [ ] **Feature 3** — Ride Status in UI: update `statusBadge` and ride card displays to handle `active`, `in_progress`, `completed`, `expired`
-- [ ] **Feature 4** — Rating Prompt: fetch pending ratings on load, show one prompt at a time above all content, 5-star UI, dismiss option
-- [ ] **Feature 5** — Ride History (Tab): new History tab for both roles, cards showing completed ride details and ratings
+- [x] **Feature 1** — Confirmed Ride Screen (Passenger): full confirmed ride card for accepted requests (driver name, departure time, pickup location, wait time, driver avg rating, Cancel button)
+- [x] **Feature 2** — Confirmed Passengers List (Driver): expandable passenger list per ride, numbered by pickup order, pickup distance, total detour estimate, Mark as Started / Mark as Completed buttons
+- [x] **Feature 3** — Ride Status in UI: update `statusBadge` and ride card displays to handle `active`, `in_progress`, `completed`, `expired`
+- [x] **Feature 4** — Rating Prompt: fetch pending ratings on load, show one prompt at a time above all content, 5-star UI, dismiss option
+- [x] **Feature 5** — Ride History (Tab): new History tab for both roles, cards showing completed ride details and ratings
 
 After Batch 1: update CLAUDE.md (mark features 1–5 done), commit + push, then **stop and wait**.
 
 ---
 
-### Batch 2 — after user says "continue", implement these 5 features, then stop
+### Batch 2 — after user says "continue", implement these 5 features, then stop ✅ DONE
 
-- [ ] **Feature 6** — Notifications Badge + Dropdown: unread count badge in navbar, dropdown list, poll every 30s via `setInterval`, mark all read on open
-- [ ] **Feature 7** — Duplicate prevention UI: no code needed (backend returns clear error messages); verify the existing error display handles them correctly
-- [ ] **Feature 8** — Search Filters: filter panel above ride results (max distance slider, time window selector, min score slider, min driver rating), client-side only, reset on new search, active filter count badge
-- [ ] **Feature 9** — Route Preview Map: "Show map" toggle on each match card, lazy-fetch polyline from `GET /api/rides/:id/polyline`, render `RoutePreviewMap` component (non-interactive Leaflet map, amber polyline, pickup marker); component definition is in CLAUDE.md above
-- [ ] **Feature 10** — Capacity Badge: "Fully Booked" badge + disabled Request button when `available_seats === 0`
+- [x] **Feature 6** — Notifications Badge + Dropdown: unread count badge in navbar, dropdown list, poll every 30s via `setInterval`, mark all read on open
+- [x] **Feature 7** — Duplicate prevention UI: no code needed; existing error handling (`err.response?.data?.error`) already surfaces backend error messages correctly
+- [x] **Feature 8** — Search Filters: filter panel above ride results (max distance slider, time window selector, min score slider, min driver rating), client-side only, reset on new search, active filter count badge
+- [x] **Feature 9** — Route Preview Map: "Show map" toggle on each match card, lazy-fetch polyline from `GET /api/rides/:id/polyline`, render `RoutePreviewMap` component (non-interactive Leaflet map, amber polyline, pickup marker)
+- [x] **Feature 10** — Capacity Badge: "Fully Booked" badge + disabled Request button when `available_seats === 0`
 
 After Batch 2: update CLAUDE.md (mark features 6–10 done), commit + push, then **stop and wait**.
 
 ---
 
-### Batch 3 — after user says "continue", implement these 4 items, then stop
+### Batch 3 — after user says "continue", implement these 4 items, then stop ✅ DONE
 
-- [ ] **Feature 11** — Driver Analytics (Tab): new Analytics tab for drivers, stat boxes for total rides, total passengers, avg compatibility score, avg rating received
-- [ ] **handleRequestRide fix**: update the call to pass `pickup_lat`, `pickup_lng`, and `score` — it must now take the full match object, not just `rideId` (see "handleRequestRide — update to pass coords + score" section above)
-- [ ] Final review: check all existing functionality still works (post ride, find rides, accept/reject requests, delete ride)
-- [ ] Commit + push final state
+- [x] **Feature 11** — Driver Analytics (Tab): new Analytics tab for drivers, stat boxes for total rides, total passengers, avg compatibility score, avg rating received
+- [x] **handleRequestRide fix**: now takes full match object, passes `pickup_lat`, `pickup_lng`, `score` to API
+- [x] Final review: all existing functionality preserved (post ride, find rides, accept/reject requests, delete ride)
+- [x] Commit + push final state
 
 After Batch 3: update CLAUDE.md to mark all complete, commit + push, then **stop**.
 

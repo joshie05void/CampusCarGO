@@ -56,6 +56,16 @@ async function runMigrations() {
       END $$
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        ride_id INTEGER REFERENCES rides(id) ON DELETE CASCADE,
+        sender_id INTEGER REFERENCES users(id),
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     console.log('Migrations applied.');
   } catch (err) {
     console.error('Migration error:', err.message);
