@@ -241,9 +241,9 @@ MapPicker.js imports `leaflet/dist/leaflet.css` and fixes default icon URLs. Das
 ## Key Behaviours & Constraints
 
 - **Destination hardcoded** to SCT Pappanamcode. Do not make configurable.
-- **Token in-memory only** (React state). Users log out on page refresh. Intentional.
+- **Token persisted in localStorage** — keys `ccg_token` / `ccg_role`. Session survives page refresh. *(Override: was in-memory only)*
 - **Auth header is raw JWT** — `Authorization: <token>`. No `Bearer` prefix. Do not add one.
-- **No real-time updates** — manual Refresh buttons throughout, EXCEPT notifications which poll via `setInterval(30000)`.
+- **Auto-refresh polling** — ride data polls every 15s; notifications poll every 30s. Manual Refresh buttons are still present. *(Override: was manual-only)*
 - **ORS rate limiting** — 250ms sleep between calls in match.js. Up to 10 ORS calls per match request.
 - **Nominatim** scoped to Thiruvananthapuram in `maps.js` query string.
 - **MapPicker** `FlyToLocation` sub-component calls `useMap().flyTo` on selection. Dropdown uses `onMouseDown` (not `onClick`) to prevent blur-before-click race.
@@ -432,51 +432,35 @@ Tabs shown below a thin divider, before the tab content area. The form card is i
 
 ---
 
-## INSTRUCTIONS FOR NEXT SESSION — READ THIS FIRST
+## Current State — All Dashboard Features Complete ✅
 
-You are continuing a previous session. The backend is fully complete. Your only job is to implement the frontend features listed above in `frontend/src/components/Dashboard.js`.
-
-**Before writing a single line of code: read CLAUDE.md fully, then read the current `frontend/src/components/Dashboard.js` in full.**
-
-Work in three batches. After each batch:
-1. Update `CLAUDE.md` — mark completed features as done and update any notes
-2. Commit and push to GitHub (branch: `feature/smart-matching`)
-3. Stop and wait for the user to say "continue" before starting the next batch
+All Phase 5 frontend features (Features 1–11) are fully implemented. The frontend is complete.
 
 ---
 
-### Batch 1 — implement these 5 features, then stop ✅ DONE
+## Bug Fixes & Overrides (applied after Phase 5)
 
-- [x] **Feature 1** — Confirmed Ride Screen (Passenger): full confirmed ride card for accepted requests (driver name, departure time, pickup location, wait time, driver avg rating, Cancel button)
-- [x] **Feature 2** — Confirmed Passengers List (Driver): expandable passenger list per ride, numbered by pickup order, pickup distance, total detour estimate, Mark as Started / Mark as Completed buttons
-- [x] **Feature 3** — Ride Status in UI: update `statusBadge` and ride card displays to handle `active`, `in_progress`, `completed`, `expired`
-- [x] **Feature 4** — Rating Prompt: fetch pending ratings on load, show one prompt at a time above all content, 5-star UI, dismiss option
-- [x] **Feature 5** — Ride History (Tab): new History tab for both roles, cards showing completed ride details and ratings
+The following changes **override** the original spec constraints:
 
-After Batch 1: update CLAUDE.md (mark features 1–5 done), commit + push, then **stop and wait**.
+### 1. Persistent Authentication *(overrides "token in-memory only")*
+- `App.js` now reads `ccg_token` and `ccg_role` from `localStorage` on startup (lazy `useState` initializers)
+- `handleLogin` writes both keys; `handleLogout` removes them
+- Page refresh no longer logs the user out
 
----
+### 2. Auto-Refreshing Rides *(overrides "no real-time updates")*
+- A second `setInterval` (15s) runs alongside the notifications poll (30s)
+- Every 15s: driver refreshes `fetchRequests` + `fetchMyRides`; passenger refreshes `fetchMyStatus`; both refresh `fetchPendingRatings`
+- The notifications poll remains at 30s (unchanged)
 
-### Batch 2 — after user says "continue", implement these 5 features, then stop ✅ DONE
+### 3. Chat Persistence
+- `handleToggleChat` no longer closes the chat when the navbar 💬 button is clicked while chat is open
+- Chat can only be closed via the explicit **"Close Chat"** button inside the panel header
+- The `×` button was replaced with a labelled "Close Chat" button
 
-- [x] **Feature 6** — Notifications Badge + Dropdown: unread count badge in navbar, dropdown list, poll every 30s via `setInterval`, mark all read on open
-- [x] **Feature 7** — Duplicate prevention UI: no code needed; existing error handling (`err.response?.data?.error`) already surfaces backend error messages correctly
-- [x] **Feature 8** — Search Filters: filter panel above ride results (max distance slider, time window selector, min score slider, min driver rating), client-side only, reset on new search, active filter count badge
-- [x] **Feature 9** — Route Preview Map: "Show map" toggle on each match card, lazy-fetch polyline from `GET /api/rides/:id/polyline`, render `RoutePreviewMap` component (non-interactive Leaflet map, amber polyline, pickup marker)
-- [x] **Feature 10** — Capacity Badge: "Fully Booked" badge + disabled Request button when `available_seats === 0`
-
-After Batch 2: update CLAUDE.md (mark features 6–10 done), commit + push, then **stop and wait**.
-
----
-
-### Batch 3 — after user says "continue", implement these 4 items, then stop ✅ DONE
-
-- [x] **Feature 11** — Driver Analytics (Tab): new Analytics tab for drivers, stat boxes for total rides, total passengers, avg compatibility score, avg rating received
-- [x] **handleRequestRide fix**: now takes full match object, passes `pickup_lat`, `pickup_lng`, `score` to API
-- [x] Final review: all existing functionality preserved (post ride, find rides, accept/reject requests, delete ride)
-- [x] Commit + push final state
-
-After Batch 3: update CLAUDE.md to mark all complete, commit + push, then **stop**.
+### 4. Complete Ride & Rating Flow
+- "Mark as Completed" button was already present (Feature 2, Batch 1)
+- `handleCompleteRide` now `await`s `fetchPendingRatings()` and resets `ratingStars`/`ratingHover` immediately after completing — rating prompt appears for the driver without any manual refresh
+- Passengers see their rating prompt within ~15s via the auto-refresh polling added above
 
 ---
 
