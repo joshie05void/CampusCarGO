@@ -38,11 +38,11 @@ export default function Login({ onLogin }) {
   const inputBase = {
     width: '100%',
     padding: '12px 14px',
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.09)',
+    background: '#f8f7ff',
+    border: '1px solid #e8e6f8',
     borderRadius: '9px',
     fontSize: '14px',
-    color: '#f0ece4',
+    color: '#1a1833',
     outline: 'none',
     marginBottom: '12px',
     boxSizing: 'border-box',
@@ -50,11 +50,11 @@ export default function Login({ onLogin }) {
   };
 
   const focusInput  = (e) => {
-    e.target.style.borderColor = '#f0a030';
-    e.target.style.boxShadow   = '0 0 0 3px rgba(240,160,48,0.12)';
+    e.target.style.borderColor = '#5b5bff';
+    e.target.style.boxShadow   = '0 0 0 3px rgba(91,91,255,0.12)';
   };
   const blurInput   = (e) => {
-    e.target.style.borderColor = 'rgba(255,255,255,0.09)';
+    e.target.style.borderColor = '#e8e6f8';
     e.target.style.boxShadow   = 'none';
   };
 
@@ -73,20 +73,20 @@ export default function Login({ onLogin }) {
       {/* Wordmark */}
       <div style={{ textAlign: 'center', marginBottom: '36px', animation: 'fadeUp 0.5s ease both' }}>
         <div style={{
-          fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontSize: '42px',
-          fontWeight: '500',
-          letterSpacing: '-0.5px',
-          color: '#f0ece4',
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          fontSize: '38px',
+          fontWeight: '800',
+          letterSpacing: '-1px',
+          color: '#1a1833',
           lineHeight: 1,
           marginBottom: '8px',
         }}>
-          Campus<span style={{ color: '#f0a030' }}>Car</span>GO
+          Campus<span style={{ color: '#5b5bff' }}>Car</span>GO
         </div>
         <div style={{
           fontSize: '11px',
           letterSpacing: '3px',
-          color: 'rgba(240,160,48,0.7)',
+          color: '#9999bb',
           textTransform: 'uppercase',
           fontWeight: '600',
         }}>
@@ -98,12 +98,11 @@ export default function Login({ onLogin }) {
       <div style={{
         width: '100%',
         maxWidth: '420px',
-        background: 'rgba(255,255,255,0.035)',
-        border: '1px solid rgba(255,255,255,0.09)',
+        background: '#ffffff',
+        border: '1px solid #e8e6f8',
         borderRadius: '18px',
         padding: '28px',
-        backdropFilter: 'blur(20px)',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset',
+        boxShadow: '0 8px 32px rgba(91,91,255,0.08), 0 2px 8px rgba(0,0,0,0.04)',
         animation: 'fadeUp 0.5s 0.08s ease both',
       }}>
 
@@ -111,8 +110,8 @@ export default function Login({ onLogin }) {
         <div style={{
           display: 'flex',
           gap: '4px',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.07)',
+          background: '#f8f7ff',
+          border: '1px solid #e8e6f8',
           borderRadius: '10px',
           padding: '4px',
           marginBottom: '24px',
@@ -129,13 +128,13 @@ export default function Login({ onLogin }) {
                 padding: '9px 12px',
                 border: 'none',
                 borderRadius: '7px',
-                background: isRegister === t.value ? '#f0a030' : 'transparent',
-                color: isRegister === t.value ? '#0d0b10' : 'rgba(240,236,228,0.5)',
+                background: isRegister === t.value ? '#5b5bff' : 'transparent',
+                color: isRegister === t.value ? '#ffffff' : '#9999bb',
                 fontWeight: isRegister === t.value ? '700' : '500',
                 fontSize: '13px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                fontFamily: 'Manrope, sans-serif',
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >{t.label}</button>
           ))}
@@ -166,7 +165,7 @@ export default function Login({ onLogin }) {
         {/* Role selector */}
         {isRegister && (
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '11px', color: 'rgba(240,236,228,0.4)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '10px' }}>
+            <div style={{ fontSize: '11px', color: '#9999bb', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '10px' }}>
               I am a
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -176,16 +175,16 @@ export default function Login({ onLogin }) {
               ].map(r => (
                 <button key={r.value} onClick={() => setRole(r.value)} style={{
                   padding: '12px 10px',
-                  border: `1px solid ${role === r.value ? '#f0a030' : 'rgba(255,255,255,0.09)'}`,
+                  border: `1px solid ${role === r.value ? '#5b5bff' : '#e8e6f8'}`,
                   borderRadius: '9px',
-                  background: role === r.value ? 'rgba(240,160,48,0.12)' : 'rgba(255,255,255,0.03)',
-                  color: role === r.value ? '#f0a030' : 'rgba(240,236,228,0.5)',
+                  background: role === r.value ? '#eeeeff' : '#f8f7ff',
+                  color: role === r.value ? '#5b5bff' : '#9999bb',
                   fontWeight: '600',
                   fontSize: '13px',
                   cursor: 'pointer',
                   transition: 'all 0.18s',
-                  boxShadow: role === r.value ? '0 0 12px rgba(240,160,48,0.15)' : 'none',
-                  fontFamily: 'Manrope, sans-serif',
+                  boxShadow: role === r.value ? '0 0 0 1px #5b5bff' : 'none',
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
                 }}>
                   <div style={{ fontSize: '20px', marginBottom: '4px' }}>{r.icon}</div>
                   {r.label}
@@ -220,32 +219,32 @@ export default function Login({ onLogin }) {
           style={{
             width: '100%',
             padding: '13px',
-            background: loading ? 'rgba(240,160,48,0.35)' : '#f0a030',
-            color: loading ? 'rgba(13,11,16,0.5)' : '#0d0b10',
+            background: loading ? 'rgba(91,91,255,0.4)' : '#5b5bff',
+            color: '#ffffff',
             border: 'none',
             borderRadius: '9px',
             fontSize: '14px',
             fontWeight: '700',
             cursor: loading ? 'not-allowed' : 'pointer',
             transition: 'all 0.2s',
-            boxShadow: loading ? 'none' : '0 0 20px rgba(240,160,48,0.3)',
+            boxShadow: loading ? 'none' : '0 4px 16px rgba(91,91,255,0.3)',
             letterSpacing: '0.2px',
-            fontFamily: 'Manrope, sans-serif',
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
           }}
-          onMouseEnter={e => { if (!loading) e.target.style.boxShadow = '0 0 32px rgba(240,160,48,0.5)'; }}
-          onMouseLeave={e => { if (!loading) e.target.style.boxShadow = '0 0 20px rgba(240,160,48,0.3)'; }}
+          onMouseEnter={e => { if (!loading) e.target.style.background = '#4444cc'; }}
+          onMouseLeave={e => { if (!loading) e.target.style.background = '#5b5bff'; }}
         >
           {loading ? 'Please wait…' : isRegister ? 'Create account' : 'Sign in'}
         </button>
 
         {/* Switch mode text */}
-        <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13px', color: 'rgba(240,236,228,0.35)' }}>
+        <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13px', color: '#9999bb' }}>
           {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
           <button onClick={switchMode} style={{
             background: 'none', border: 'none',
-            color: '#f0a030', fontWeight: '600',
+            color: '#5b5bff', fontWeight: '600',
             fontSize: '13px', cursor: 'pointer',
-            padding: 0, fontFamily: 'Manrope, sans-serif',
+            padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif",
           }}>
             {isRegister ? 'Sign in' : 'Register'}
           </button>
@@ -256,7 +255,7 @@ export default function Login({ onLogin }) {
       <div style={{
         marginTop: '28px',
         fontSize: '11px',
-        color: 'rgba(240,236,228,0.2)',
+        color: '#c4c2d8',
         letterSpacing: '0.5px',
         animation: 'fadeIn 0.5s 0.3s ease both',
       }}>
