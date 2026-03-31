@@ -1,9 +1,11 @@
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const cron = require('node-cron');
 const pool = require('./config/db');
 const runMigrations = require('./db/migrate');
+const { init: initSocket } = require('./socket');
 
 const authRoutes = require('./routes/auth');
 
@@ -21,6 +23,8 @@ const matchRoutes = require('./routes/match');
 app.use('/api/match', matchRoutes);
 const notifRoutes = require('./routes/notifications');
 app.use('/api/notifications', notifRoutes);
+const chatRoutes = require('./routes/chat');
+app.use('/api/chat', chatRoutes);
 
 app.get('/', (req, res) => {
   res.send('CampusCarGO backend is running');
@@ -69,7 +73,10 @@ cron.schedule('*/10 * * * *', async () => {
   }
 });
 
+const server = http.createServer(app);
+initSocket(server);
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log('Server running on port ' + PORT);
 });
