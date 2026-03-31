@@ -91,7 +91,7 @@ export default function MapPicker({ label, onLocationSelect }) {
       <label style={{
         display: 'block',
         fontSize: '11px',
-        color: '#9999bb',
+        color: '#8AAA9E',
         textTransform: 'uppercase',
         letterSpacing: '1px',
         fontWeight: '600',
@@ -102,7 +102,7 @@ export default function MapPicker({ label, onLocationSelect }) {
 
       <div ref={wrapperRef} style={{ position: 'relative' }}>
         <div style={{ position: 'relative' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9999bb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8AAA9E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
             style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
@@ -115,18 +115,18 @@ export default function MapPicker({ label, onLocationSelect }) {
             style={{
               width: '100%',
               padding: '10px 12px 10px 34px',
-              background: '#ffffff',
-              border: `1.5px solid ${open ? '#5b5bff' : '#e8e6f8'}`,
+              background: '#FEFAF3',
+              border: `1.5px solid ${open ? '#102C26' : '#DDD0B3'}`,
               borderRadius: open ? '9px 9px 0 0' : '9px',
               fontSize: '13px',
-              color: '#1a1833',
+              color: '#102C26',
               outline: 'none',
               boxSizing: 'border-box',
               transition: 'border-color 0.15s, box-shadow 0.15s',
-              fontFamily: 'Plus Jakarta Sans, inherit',
+              fontFamily: 'Montserrat, inherit',
             }}
-            onFocus={e => { e.target.style.borderColor = '#5b5bff'; e.target.style.boxShadow = '0 0 0 3px rgba(91,91,255,0.1)'; }}
-            onBlur={e => { if (!open) { e.target.style.borderColor = '#e8e6f8'; e.target.style.boxShadow = 'none'; } }}
+            onFocus={e => { e.target.style.borderColor = '#102C26'; e.target.style.boxShadow = '0 0 0 3px rgba(16,44,38,0.1)'; }}
+            onBlur={e => { if (!open) { e.target.style.borderColor = '#DDD0B3'; e.target.style.boxShadow = 'none'; } }}
           />
         </div>
 
@@ -134,14 +134,14 @@ export default function MapPicker({ label, onLocationSelect }) {
           <ul style={{
             position: 'absolute', top: '100%', left: 0, right: 0,
             listStyle: 'none', padding: '4px 0', margin: 0,
-            background: '#ffffff',
-            border: '1.5px solid #5b5bff',
+            background: '#FEFAF3',
+            border: '1.5px solid #102C26',
             borderTop: 'none',
             borderRadius: '0 0 9px 9px',
             zIndex: 1000,
             maxHeight: '200px',
             overflowY: 'auto',
-            boxShadow: '0 8px 24px rgba(91,91,255,0.12)',
+            boxShadow: '0 8px 24px rgba(16,44,38,0.12)',
           }}>
             {suggestions.map((s, i) => (
               <li
@@ -153,15 +153,15 @@ export default function MapPicker({ label, onLocationSelect }) {
                   padding: '9px 14px',
                   cursor: 'pointer',
                   fontSize: '13px',
-                  color: '#1a1833',
-                  borderBottom: i < suggestions.length - 1 ? '1px solid #f0eeff' : 'none',
-                  background: hoveredIdx === i ? 'rgba(91,91,255,0.05)' : 'transparent',
+                  color: '#102C26',
+                  borderBottom: i < suggestions.length - 1 ? '1px solid #EAE0CC' : 'none',
+                  background: hoveredIdx === i ? 'rgba(16,44,38,0.05)' : 'transparent',
                   transition: 'background 0.1s',
-                  fontFamily: 'Plus Jakarta Sans, inherit',
+                  fontFamily: 'Montserrat, inherit',
                 }}
               >
                 <span style={{ fontWeight: '600' }}>{s.display_name.split(',')[0]}</span>
-                <span style={{ color: '#9999bb', marginLeft: '6px', fontSize: '12px' }}>
+                <span style={{ color: '#8AAA9E', marginLeft: '6px', fontSize: '12px' }}>
                   {s.display_name.split(',').slice(1, 3).join(',')}
                 </span>
               </li>
@@ -175,8 +175,8 @@ export default function MapPicker({ label, onLocationSelect }) {
         marginTop: '8px',
         borderRadius: '10px',
         overflow: 'hidden',
-        border: '1.5px solid #e8e6f8',
-        boxShadow: '0 2px 12px rgba(91,91,255,0.06)',
+        border: '1.5px solid #DDD0B3',
+        boxShadow: '0 2px 12px rgba(16,44,38,0.06)',
       }}>
         <MapContainer center={[SCT.lat, SCT.lng]} zoom={13} style={{ height: '220px', width: '100%' }}>
           <TileLayer
@@ -195,11 +195,11 @@ export default function MapPicker({ label, onLocationSelect }) {
 
       {marker && (
         <div style={{
-          marginTop: '6px', fontSize: '12px', color: '#5b5bff',
+          marginTop: '6px', fontSize: '12px', color: '#102C26',
           display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600',
-          fontFamily: 'Plus Jakarta Sans, inherit',
+          fontFamily: 'Montserrat, inherit',
         }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5b5bff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#102C26" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20,6 9,17 4,12"/>
           </svg>
           <span>{query}</span>

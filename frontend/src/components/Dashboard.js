@@ -5,10 +5,10 @@ import MapPicker from './MapPicker';
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet';
 
 const C = {
-  bg: '#f4f3ff', sidebar: '#ffffff', card: '#ffffff', surface: '#f8f7ff',
-  border: '#e8e6f8', borderLight: '#f0eeff',
-  accent: '#5b5bff', accentDark: '#4444cc', accentLight: '#eeeeff', accentDim: 'rgba(91,91,255,0.08)',
-  text: '#1a1833', muted: '#6b6b8a', faint: '#9999bb',
+  bg: '#F7E7CE', sidebar: '#FEFAF3', card: '#FEFAF3', surface: '#F2DDBC',
+  border: '#DDD0B3', borderLight: '#EAE0CC',
+  accent: '#102C26', accentDark: '#0A1E1A', accentLight: '#D4E8E2', accentDim: 'rgba(16,44,38,0.08)',
+  text: '#102C26', muted: '#4A6A5E', faint: '#8AAA9E',
   successText: '#16a34a', successBg: '#f0fdf4', successBorder: '#bbf7d0',
   errorText: '#dc2626', errorBg: '#fef2f2', errorBorder: '#fecaca',
   infoText: '#2563eb', infoBg: '#eff6ff', infoBorder: '#bfdbfe',
@@ -24,15 +24,17 @@ function RoutePreviewMap({ coordinates, pickupLat, pickupLng }) {
   const latLngs = coordinates.map(c => [c[1], c[0]]);
   const mid = latLngs[Math.floor(latLngs.length / 2)] || [8.5241, 76.9366];
   return (
-    <MapContainer center={mid} zoom={13} style={{ height: 200, borderRadius: 10, marginBottom: 12 }}
-      scrollWheelZoom={false} dragging={false} zoomControl={false} attributionControl={false}>
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      <FitBounds latLngs={latLngs} />
-      <Polyline positions={latLngs} color={C.accent} weight={3} opacity={0.9} />
-      {pickupLat && pickupLng && (
-        <CircleMarker center={[pickupLat, pickupLng]} radius={8} color="#fff" fillColor={C.accent} fillOpacity={1} weight={2} />
-      )}
-    </MapContainer>
+    <div style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 12, border: `1px solid ${C.border}` }}>
+      <MapContainer center={mid} zoom={13} style={{ height: '200px', width: '100%' }}
+        scrollWheelZoom={false} dragging={false} zoomControl={false} attributionControl={false}>
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <FitBounds latLngs={latLngs} />
+        <Polyline positions={latLngs} color={C.accent} weight={3} opacity={0.9} />
+        {pickupLat && pickupLng && (
+          <CircleMarker center={[pickupLat, pickupLng]} radius={8} color="#FEFAF3" fillColor={C.accent} fillOpacity={1} weight={2} />
+        )}
+      </MapContainer>
+    </div>
   );
 }
 
