@@ -1,38 +1,20 @@
 import { useState } from 'react';
 import axios from 'axios';
 
-// Yellow palette
-const C = {
-  bg:          '#fffbeb',
-  card:        '#ffffff',
-  border:      '#fde68a',
-  accent:      '#d97706',
-  accentDark:  '#b45309',
-  text:        '#1c1917',
-  muted:       '#78716c',
-  faint:       '#a8a29e',
-  successBg:   '#f0faf5',
-  successBorder:'#b7e4c7',
-  successText: '#15803d',
-  errorBg:     '#fdf3f2',
-  errorBorder: '#f5c6c2',
-  errorText:   '#c0392b',
-};
-
 export default function Login({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
-  const [name, setName] = useState('');
-  const [regNumber, setRegNumber] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState('passenger');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [name, setName]             = useState('');
+  const [regNumber, setRegNumber]   = useState('');
+  const [password, setPassword]     = useState('');
+  const [role, setRole]             = useState('passenger');
+  const [error, setError]           = useState('');
+  const [success, setSuccess]       = useState('');
+  const [loading, setLoading]       = useState(false);
 
   const handleSubmit = async () => {
     setError(''); setSuccess('');
     if (!regNumber || !password) { setError('Please fill in all fields.'); return; }
-    if (isRegister && !name) { setError('Please enter your name.'); return; }
+    if (isRegister && !name)     { setError('Please enter your name.'); return; }
     setLoading(true);
     try {
       if (isRegister) {
@@ -51,124 +33,234 @@ export default function Login({ onLogin }) {
   };
 
   const handleKeyDown = (e) => { if (e.key === 'Enter') handleSubmit(); };
-
-  const inputStyle = {
-    width: '100%',
-    padding: '10px 12px',
-    border: `1px solid ${C.border}`,
-    borderRadius: '6px',
-    fontSize: '15px',
-    outline: 'none',
-    background: C.card,
-    color: C.text,
-    marginBottom: '12px',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.15s',
-  };
-
   const switchMode = () => { setIsRegister(v => !v); setError(''); setSuccess(''); };
 
+  const inputBase = {
+    width: '100%',
+    padding: '12px 14px',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.09)',
+    borderRadius: '9px',
+    fontSize: '14px',
+    color: '#f0ece4',
+    outline: 'none',
+    marginBottom: '12px',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+  };
+
+  const focusInput  = (e) => {
+    e.target.style.borderColor = '#f0a030';
+    e.target.style.boxShadow   = '0 0 0 3px rgba(240,160,48,0.12)';
+  };
+  const blurInput   = (e) => {
+    e.target.style.borderColor = 'rgba(255,255,255,0.09)';
+    e.target.style.boxShadow   = 'none';
+  };
+
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ width: '100%', maxWidth: '400px' }}>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px 20px',
+      position: 'relative',
+      zIndex: 1,
+    }}>
 
-        {/* Brand */}
-        <div style={{ marginBottom: '28px' }}>
-          <div style={{ fontSize: '22px', fontWeight: '700', color: C.text, letterSpacing: '-0.3px' }}>
-            CampusCarGO
-          </div>
-          <div style={{ color: C.muted, fontSize: '14px', marginTop: '4px' }}>
-            Ride sharing for SCT students
-          </div>
+      {/* Wordmark */}
+      <div style={{ textAlign: 'center', marginBottom: '36px', animation: 'fadeUp 0.5s ease both' }}>
+        <div style={{
+          fontFamily: "'Cormorant Garamond', Georgia, serif",
+          fontSize: '42px',
+          fontWeight: '500',
+          letterSpacing: '-0.5px',
+          color: '#f0ece4',
+          lineHeight: 1,
+          marginBottom: '8px',
+        }}>
+          Campus<span style={{ color: '#f0a030' }}>Car</span>GO
+        </div>
+        <div style={{
+          fontSize: '11px',
+          letterSpacing: '3px',
+          color: 'rgba(240,160,48,0.7)',
+          textTransform: 'uppercase',
+          fontWeight: '600',
+        }}>
+          SCT · Pappanamcode
+        </div>
+      </div>
+
+      {/* Card */}
+      <div style={{
+        width: '100%',
+        maxWidth: '420px',
+        background: 'rgba(255,255,255,0.035)',
+        border: '1px solid rgba(255,255,255,0.09)',
+        borderRadius: '18px',
+        padding: '28px',
+        backdropFilter: 'blur(20px)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset',
+        animation: 'fadeUp 0.5s 0.08s ease both',
+      }}>
+
+        {/* Tab switcher */}
+        <div style={{
+          display: 'flex',
+          gap: '4px',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: '10px',
+          padding: '4px',
+          marginBottom: '24px',
+        }}>
+          {[
+            { label: 'Sign in',       value: false },
+            { label: 'Create account', value: true  },
+          ].map(t => (
+            <button
+              key={String(t.value)}
+              onClick={() => { setIsRegister(t.value); setError(''); setSuccess(''); }}
+              style={{
+                flex: 1,
+                padding: '9px 12px',
+                border: 'none',
+                borderRadius: '7px',
+                background: isRegister === t.value ? '#f0a030' : 'transparent',
+                color: isRegister === t.value ? '#0d0b10' : 'rgba(240,236,228,0.5)',
+                fontWeight: isRegister === t.value ? '700' : '500',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: 'Manrope, sans-serif',
+              }}
+            >{t.label}</button>
+          ))}
         </div>
 
-        {/* Card */}
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '28px' }}>
-          <div style={{ fontSize: '17px', fontWeight: '600', marginBottom: '20px', color: C.text }}>
-            {isRegister ? 'Create an account' : 'Sign in'}
+        {/* Fields */}
+        {isRegister && (
+          <input
+            type="text" value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={handleKeyDown} placeholder="Full name"
+            style={inputBase} onFocus={focusInput} onBlur={blurInput}
+          />
+        )}
+
+        <input
+          type="text" value={regNumber} onChange={e => setRegNumber(e.target.value)}
+          onKeyDown={handleKeyDown} placeholder="Registration number"
+          style={inputBase} onFocus={focusInput} onBlur={blurInput}
+        />
+
+        <input
+          type="password" value={password} onChange={e => setPassword(e.target.value)}
+          onKeyDown={handleKeyDown} placeholder="Password"
+          style={{ ...inputBase, marginBottom: isRegister ? '16px' : '8px' }}
+          onFocus={focusInput} onBlur={blurInput}
+        />
+
+        {/* Role selector */}
+        {isRegister && (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '11px', color: 'rgba(240,236,228,0.4)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '600', marginBottom: '10px' }}>
+              I am a
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {[
+                { value: 'passenger', icon: '🧑‍🎓', label: 'Passenger' },
+                { value: 'driver',    icon: '🚗',    label: 'Driver'    },
+              ].map(r => (
+                <button key={r.value} onClick={() => setRole(r.value)} style={{
+                  padding: '12px 10px',
+                  border: `1px solid ${role === r.value ? '#f0a030' : 'rgba(255,255,255,0.09)'}`,
+                  borderRadius: '9px',
+                  background: role === r.value ? 'rgba(240,160,48,0.12)' : 'rgba(255,255,255,0.03)',
+                  color: role === r.value ? '#f0a030' : 'rgba(240,236,228,0.5)',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'all 0.18s',
+                  boxShadow: role === r.value ? '0 0 12px rgba(240,160,48,0.15)' : 'none',
+                  fontFamily: 'Manrope, sans-serif',
+                }}>
+                  <div style={{ fontSize: '20px', marginBottom: '4px' }}>{r.icon}</div>
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </div>
+        )}
 
-          {isRegister && (
-            <input
-              type="text" value={name} onChange={e => setName(e.target.value)}
-              onKeyDown={handleKeyDown} placeholder="Full name" style={inputStyle}
-              onFocus={e => e.target.style.borderColor = C.accent}
-              onBlur={e => e.target.style.borderColor = C.border}
-            />
-          )}
+        {/* Error / success */}
+        {error && (
+          <div style={{
+            padding: '10px 14px', borderRadius: '8px', marginBottom: '14px',
+            background: 'rgba(251,113,133,0.08)',
+            border: '1px solid rgba(251,113,133,0.2)',
+            color: '#fb7185', fontSize: '13px',
+          }}>{error}</div>
+        )}
+        {success && (
+          <div style={{
+            padding: '10px 14px', borderRadius: '8px', marginBottom: '14px',
+            background: 'rgba(74,222,128,0.08)',
+            border: '1px solid rgba(74,222,128,0.2)',
+            color: '#4ade80', fontSize: '13px',
+          }}>{success}</div>
+        )}
 
-          <input
-            type="text" value={regNumber} onChange={e => setRegNumber(e.target.value)}
-            onKeyDown={handleKeyDown} placeholder="Registration number" style={inputStyle}
-            onFocus={e => e.target.style.borderColor = C.accent}
-            onBlur={e => e.target.style.borderColor = C.border}
-          />
-
-          <input
-            type="password" value={password} onChange={e => setPassword(e.target.value)}
-            onKeyDown={handleKeyDown} placeholder="Password"
-            style={{ ...inputStyle, marginBottom: isRegister ? '16px' : '4px' }}
-            onFocus={e => e.target.style.borderColor = C.accent}
-            onBlur={e => e.target.style.borderColor = C.border}
-          />
-
-          {isRegister && (
-            <div style={{ marginBottom: '4px' }}>
-              <div style={{ fontSize: '13px', color: C.muted, marginBottom: '8px' }}>I am a</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                {['passenger', 'driver'].map(r => (
-                  <button key={r} onClick={() => setRole(r)} style={{
-                    padding: '10px',
-                    border: `1px solid ${role === r ? C.accent : C.border}`,
-                    borderRadius: '6px',
-                    background: role === r ? C.accent : C.card,
-                    color: role === r ? 'white' : C.muted,
-                    fontWeight: '500',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}>
-                    {r === 'driver' ? 'Driver' : 'Passenger'}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div style={{ fontSize: '13px', color: C.errorText, marginTop: '14px', padding: '10px 12px', background: C.errorBg, borderRadius: '6px', border: `1px solid ${C.errorBorder}` }}>
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div style={{ fontSize: '13px', color: C.successText, marginTop: '14px', padding: '10px 12px', background: C.successBg, borderRadius: '6px', border: `1px solid ${C.successBorder}` }}>
-              {success}
-            </div>
-          )}
-
-          <button onClick={handleSubmit} disabled={loading} style={{
-            width: '100%', padding: '11px', marginTop: '16px',
-            background: loading ? C.faint : C.accent,
-            color: 'white', border: 'none', borderRadius: '6px',
-            fontSize: '15px', fontWeight: '600',
+        {/* Submit */}
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: '13px',
+            background: loading ? 'rgba(240,160,48,0.35)' : '#f0a030',
+            color: loading ? 'rgba(13,11,16,0.5)' : '#0d0b10',
+            border: 'none',
+            borderRadius: '9px',
+            fontSize: '14px',
+            fontWeight: '700',
             cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'background 0.15s',
-          }}>
-            {loading ? 'Please wait...' : isRegister ? 'Create account' : 'Sign in'}
-          </button>
+            transition: 'all 0.2s',
+            boxShadow: loading ? 'none' : '0 0 20px rgba(240,160,48,0.3)',
+            letterSpacing: '0.2px',
+            fontFamily: 'Manrope, sans-serif',
+          }}
+          onMouseEnter={e => { if (!loading) e.target.style.boxShadow = '0 0 32px rgba(240,160,48,0.5)'; }}
+          onMouseLeave={e => { if (!loading) e.target.style.boxShadow = '0 0 20px rgba(240,160,48,0.3)'; }}
+        >
+          {loading ? 'Please wait…' : isRegister ? 'Create account' : 'Sign in'}
+        </button>
 
-          <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13px', color: C.muted }}>
-            {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button onClick={switchMode} style={{
-              background: 'none', border: 'none', color: C.accent,
-              fontWeight: '600', fontSize: '13px', cursor: 'pointer',
-              textDecoration: 'underline', padding: 0,
-            }}>
-              {isRegister ? 'Sign in' : 'Register'}
-            </button>
-          </div>
+        {/* Switch mode text */}
+        <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13px', color: 'rgba(240,236,228,0.35)' }}>
+          {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
+          <button onClick={switchMode} style={{
+            background: 'none', border: 'none',
+            color: '#f0a030', fontWeight: '600',
+            fontSize: '13px', cursor: 'pointer',
+            padding: 0, fontFamily: 'Manrope, sans-serif',
+          }}>
+            {isRegister ? 'Sign in' : 'Register'}
+          </button>
         </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        marginTop: '28px',
+        fontSize: '11px',
+        color: 'rgba(240,236,228,0.2)',
+        letterSpacing: '0.5px',
+        animation: 'fadeIn 0.5s 0.3s ease both',
+      }}>
+        Ride sharing for SCT students
       </div>
     </div>
   );
