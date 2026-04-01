@@ -91,10 +91,10 @@ export default function MapPicker({ label, onLocationSelect }) {
       <label style={{
         display: 'block',
         fontSize: '11px',
-        color: '#8AAA9E',
+        color: '#3a5468',
         textTransform: 'uppercase',
         letterSpacing: '1px',
-        fontWeight: '600',
+        fontWeight: '700',
         marginBottom: '6px',
       }}>
         {label}
@@ -102,7 +102,7 @@ export default function MapPicker({ label, onLocationSelect }) {
 
       <div ref={wrapperRef} style={{ position: 'relative' }}>
         <div style={{ position: 'relative' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8AAA9E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3a5468" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
             style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
@@ -115,18 +115,18 @@ export default function MapPicker({ label, onLocationSelect }) {
             style={{
               width: '100%',
               padding: '10px 12px 10px 34px',
-              background: '#FEFAF3',
-              border: `1.5px solid ${open ? '#102C26' : '#DDD0B3'}`,
+              background: 'rgba(255,255,255,0.05)',
+              border: `1.5px solid ${open ? '#00dcff' : 'rgba(0,220,255,0.15)'}`,
               borderRadius: open ? '9px 9px 0 0' : '9px',
               fontSize: '13px',
-              color: '#102C26',
+              color: '#d4eef8',
               outline: 'none',
               boxSizing: 'border-box',
               transition: 'border-color 0.15s, box-shadow 0.15s',
-              fontFamily: 'Montserrat, inherit',
+              fontFamily: 'Barlow, inherit',
             }}
-            onFocus={e => { e.target.style.borderColor = '#102C26'; e.target.style.boxShadow = '0 0 0 3px rgba(16,44,38,0.1)'; }}
-            onBlur={e => { if (!open) { e.target.style.borderColor = '#DDD0B3'; e.target.style.boxShadow = 'none'; } }}
+            onFocus={e => { e.target.style.borderColor = '#00dcff'; e.target.style.boxShadow = '0 0 0 3px rgba(0,220,255,0.12)'; }}
+            onBlur={e => { if (!open) { e.target.style.borderColor = 'rgba(0,220,255,0.15)'; e.target.style.boxShadow = 'none'; } }}
           />
         </div>
 
@@ -134,14 +134,14 @@ export default function MapPicker({ label, onLocationSelect }) {
           <ul style={{
             position: 'absolute', top: '100%', left: 0, right: 0,
             listStyle: 'none', padding: '4px 0', margin: 0,
-            background: '#FEFAF3',
-            border: '1.5px solid #102C26',
+            background: '#0a1628',
+            border: '1.5px solid rgba(0,220,255,0.3)',
             borderTop: 'none',
             borderRadius: '0 0 9px 9px',
             zIndex: 1000,
             maxHeight: '200px',
             overflowY: 'auto',
-            boxShadow: '0 8px 24px rgba(16,44,38,0.12)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
           }}>
             {suggestions.map((s, i) => (
               <li
@@ -153,15 +153,15 @@ export default function MapPicker({ label, onLocationSelect }) {
                   padding: '9px 14px',
                   cursor: 'pointer',
                   fontSize: '13px',
-                  color: '#102C26',
-                  borderBottom: i < suggestions.length - 1 ? '1px solid #EAE0CC' : 'none',
-                  background: hoveredIdx === i ? 'rgba(16,44,38,0.05)' : 'transparent',
+                  color: '#d4eef8',
+                  borderBottom: i < suggestions.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                  background: hoveredIdx === i ? 'rgba(0,220,255,0.06)' : 'transparent',
                   transition: 'background 0.1s',
-                  fontFamily: 'Montserrat, inherit',
+                  fontFamily: 'Barlow, inherit',
                 }}
               >
                 <span style={{ fontWeight: '600' }}>{s.display_name.split(',')[0]}</span>
-                <span style={{ color: '#8AAA9E', marginLeft: '6px', fontSize: '12px' }}>
+                <span style={{ color: '#3a5468', marginLeft: '6px', fontSize: '12px' }}>
                   {s.display_name.split(',').slice(1, 3).join(',')}
                 </span>
               </li>
@@ -175,13 +175,12 @@ export default function MapPicker({ label, onLocationSelect }) {
         marginTop: '8px',
         borderRadius: '10px',
         overflow: 'hidden',
-        border: '1.5px solid #DDD0B3',
-        boxShadow: '0 2px 12px rgba(16,44,38,0.06)',
+        border: '1.5px solid rgba(0,220,255,0.15)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
       }}>
-        <MapContainer center={[SCT.lat, SCT.lng]} zoom={13} style={{ height: '220px', width: '100%' }}>
+        <MapContainer center={[SCT.lat, SCT.lng]} zoom={13} style={{ height: '220px', width: '100%' }} attributionControl={false}>
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
           <ClickHandler onMapClick={handleMapClick} />
           {marker && (
@@ -195,11 +194,11 @@ export default function MapPicker({ label, onLocationSelect }) {
 
       {marker && (
         <div style={{
-          marginTop: '6px', fontSize: '12px', color: '#102C26',
+          marginTop: '6px', fontSize: '12px', color: '#00dcff',
           display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600',
-          fontFamily: 'Montserrat, inherit',
+          fontFamily: 'Barlow, inherit',
         }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#102C26" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00dcff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20,6 9,17 4,12"/>
           </svg>
           <span>{query}</span>
