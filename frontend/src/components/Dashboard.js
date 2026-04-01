@@ -5,14 +5,29 @@ import MapPicker from './MapPicker';
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet';
 
 const C = {
-  bg: '#F7E7CE', sidebar: '#FEFAF3', card: '#FEFAF3', surface: '#F2DDBC',
-  border: '#DDD0B3', borderLight: '#EAE0CC',
-  accent: '#102C26', accentDark: '#0A1E1A', accentLight: '#D4E8E2', accentDim: 'rgba(16,44,38,0.08)',
-  text: '#102C26', muted: '#4A6A5E', faint: '#8AAA9E',
-  successText: '#16a34a', successBg: '#f0fdf4', successBorder: '#bbf7d0',
-  errorText: '#dc2626', errorBg: '#fef2f2', errorBorder: '#fecaca',
-  infoText: '#2563eb', infoBg: '#eff6ff', infoBorder: '#bfdbfe',
-  warningText: '#d97706',
+  bg: '#06080f',
+  sidebar: '#090e1a',
+  card: 'rgba(255,255,255,0.03)',
+  surface: 'rgba(255,255,255,0.05)',
+  border: 'rgba(0,220,255,0.12)',
+  borderLight: 'rgba(255,255,255,0.06)',
+  accent: '#00dcff',
+  accentDark: '#00aac8',
+  accentLight: 'rgba(0,220,255,0.12)',
+  accentDim: 'rgba(0,220,255,0.07)',
+  text: '#d4eef8',
+  muted: '#6b8a9e',
+  faint: '#3a5468',
+  successText: '#10d98a',
+  successBg: 'rgba(16,217,138,0.08)',
+  successBorder: 'rgba(16,217,138,0.25)',
+  errorText: '#ff3366',
+  errorBg: 'rgba(255,51,102,0.08)',
+  errorBorder: 'rgba(255,51,102,0.25)',
+  infoText: '#60a5fa',
+  infoBg: 'rgba(96,165,250,0.08)',
+  infoBorder: 'rgba(96,165,250,0.25)',
+  warningText: '#fbbf24',
 };
 
 function FitBounds({ latLngs }) {
@@ -20,18 +35,20 @@ function FitBounds({ latLngs }) {
   useEffect(() => { if (latLngs.length > 0) map.fitBounds(latLngs, { padding: [20, 20] }); }, []);
   return null;
 }
+
 function RoutePreviewMap({ coordinates, pickupLat, pickupLng }) {
   const latLngs = coordinates.map(c => [c[1], c[0]]);
   const mid = latLngs[Math.floor(latLngs.length / 2)] || [8.5241, 76.9366];
   return (
-    <div style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 12, border: `1px solid ${C.border}` }}>
+    <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12, border: `1px solid ${C.border}` }}>
       <MapContainer center={mid} zoom={13} style={{ height: '200px', width: '100%' }}
         scrollWheelZoom={false} dragging={false} zoomControl={false} attributionControl={false}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
         <FitBounds latLngs={latLngs} />
         <Polyline positions={latLngs} color={C.accent} weight={3} opacity={0.9} />
         {pickupLat && pickupLng && (
-          <CircleMarker center={[pickupLat, pickupLng]} radius={8} color="#FEFAF3" fillColor={C.accent} fillOpacity={1} weight={2} />
+          <CircleMarker center={[pickupLat, pickupLng]} radius={8}
+            color="#06080f" fillColor={C.accent} fillOpacity={1} weight={2} />
         )}
       </MapContainer>
     </div>
@@ -94,7 +111,7 @@ export default function Dashboard({ token, role, onLogout }) {
   const SCT = { lat: 8.5241, lng: 76.9366, name: 'SCT Pappanamcode' };
   const departureTime = departureDate && departureTimeStr ? `${departureDate}T${departureTimeStr}` : '';
 
-  const avatarColors = ['#5b5bff', '#7c3aed', '#db2777', '#d97706', '#16a34a', '#0891b2'];
+  const avatarColors = ['#00dcff', '#7c3aed', '#10d98a', '#f97316', '#ff3366', '#fbbf24'];
   const getInitials = (name) => name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
   const getAvatarColor = (name) => avatarColors[(name?.charCodeAt(0) || 0) % avatarColors.length];
 
@@ -165,8 +182,14 @@ export default function Dashboard({ token, role, onLogout }) {
     try { const r = await axios.get(`http://localhost:5000/api/rides/confirmed-passengers/${rideId}`, { headers: { Authorization: token } }); setConfirmedPassengers(prev => ({ ...prev, [rideId]: r.data.passengers })); } catch(e) { console.error(e); }
   };
   const fetchPolyline = async (rideId) => {
-    if (polylines[rideId]) return;
-    try { const r = await axios.get(`http://localhost:5000/api/rides/${rideId}/polyline`, { headers: { Authorization: token } }); setPolylines(prev => ({ ...prev, [rideId]: r.data.coordinates })); } catch(e) { console.error(e); }
+    if (polylines[rideId] !== undefined) return;
+    try {
+      const r = await axios.get(`http://localhost:5000/api/rides/${rideId}/polyline`, { headers: { Authorization: token } });
+      setPolylines(prev => ({ ...prev, [rideId]: r.data.coordinates || false }));
+    } catch(e) {
+      console.error(e);
+      setPolylines(prev => ({ ...prev, [rideId]: false }));
+    }
   };
   const fetchChatMessages = async (rideId) => {
     if (!rideId) return;
@@ -298,7 +321,7 @@ export default function Dashboard({ token, role, onLogout }) {
   const renderStars = (n) => {
     if (!n) return null;
     const full = Math.round(Number(n));
-    return <span><span style={{ color: '#f59e0b' }}>{'★'.repeat(full)}</span><span style={{ color: C.borderLight }}>{'★'.repeat(5 - full)}</span></span>;
+    return <span><span style={{ color: '#fbbf24' }}>{'★'.repeat(full)}</span><span style={{ color: C.faint }}>{'★'.repeat(5 - full)}</span></span>;
   };
 
   const filteredMatches = matches.filter(m => {
@@ -311,32 +334,76 @@ export default function Dashboard({ token, role, onLogout }) {
   const activeFilterCount = [filters.maxDist < 5000, filters.timeWindow !== null, filters.minScore > 0, filters.minRating > 0].filter(Boolean).length;
 
   const statusDot = (status) => {
-    const colors = { active: C.successText, in_progress: C.infoText, completed: C.muted, expired: C.faint, pending: '#f59e0b', accepted: C.successText, rejected: C.errorText, cancelled: C.faint };
-    return <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: colors[status] || C.faint, marginRight: 5, flexShrink: 0 }} />;
+    const colors = { active: C.successText, in_progress: C.infoText, completed: C.muted, expired: C.faint, pending: C.warningText, accepted: C.successText, rejected: C.errorText, cancelled: C.faint };
+    return <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: colors[status] || C.faint, marginRight: 5, flexShrink: 0, boxShadow: status === 'active' ? `0 0 6px ${C.successText}` : 'none' }} />;
   };
   const statusBadge = (status) => {
     const map = {
-      accepted: { color: C.successText, bg: '#f0fdf4', border: '#bbf7d0' },
-      rejected: { color: C.errorText, bg: '#fef2f2', border: '#fecaca' },
-      pending: { color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
-      cancelled: { color: C.muted, bg: C.surface, border: C.border },
-      active: { color: C.accent, bg: C.accentDim, border: '#c7c7ff' },
-      in_progress: { color: C.infoText, bg: '#eff6ff', border: '#bfdbfe' },
-      completed: { color: C.successText, bg: '#f0fdf4', border: '#bbf7d0' },
-      expired: { color: C.muted, bg: C.surface, border: C.border },
+      accepted:    { color: '#10d98a', bg: 'rgba(16,217,138,0.08)',  border: 'rgba(16,217,138,0.25)' },
+      rejected:    { color: '#ff3366', bg: 'rgba(255,51,102,0.08)',  border: 'rgba(255,51,102,0.25)' },
+      pending:     { color: '#fbbf24', bg: 'rgba(251,191,36,0.08)',  border: 'rgba(251,191,36,0.25)' },
+      cancelled:   { color: C.muted,   bg: C.surface,                border: C.border },
+      active:      { color: C.accent,  bg: C.accentDim,              border: 'rgba(0,220,255,0.3)' },
+      in_progress: { color: '#60a5fa', bg: 'rgba(96,165,250,0.08)',  border: 'rgba(96,165,250,0.3)' },
+      completed:   { color: '#10d98a', bg: 'rgba(16,217,138,0.08)',  border: 'rgba(16,217,138,0.25)' },
+      expired:     { color: C.muted,   bg: C.surface,                border: C.border },
     };
     const s = map[status] || map.pending;
     return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}`, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{status?.replace('_', ' ')}</span>;
   };
 
   // ── Style helpers ─────────────────────────────────────────────────────────────
-  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: '0 1px 8px rgba(91,91,255,0.06)' };
-  const inputStyle = { width: '100%', padding: '10px 12px', background: '#fff', border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 14, color: C.text, outline: 'none', transition: 'border-color 0.15s, box-shadow 0.15s', fontFamily: 'inherit' };
-  const labelStyle = { display: 'block', fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, marginBottom: 6 };
-  const btnPrimary = { padding: '11px 20px', background: C.accent, color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' };
-  const btnOutline = { padding: '9px 16px', background: 'transparent', border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.muted, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' };
-  const focusIn = (e) => { e.target.style.borderColor = C.accent; e.target.style.boxShadow = '0 0 0 3px rgba(91,91,255,0.08)'; };
-  const focusOut = (e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; };
+  const card = {
+    background: C.card,
+    border: `1px solid ${C.border}`,
+    borderRadius: 16,
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+  };
+  const inputStyle = {
+    width: '100%',
+    padding: '11px 14px',
+    background: 'rgba(255,255,255,0.05)',
+    border: `1.5px solid rgba(0,220,255,0.15)`,
+    borderRadius: 10,
+    fontSize: 14,
+    color: C.text,
+    outline: 'none',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+    fontFamily: 'inherit',
+  };
+  const labelStyle = {
+    display: 'block', fontSize: 11, color: C.faint,
+    textTransform: 'uppercase', letterSpacing: '1.5px',
+    fontWeight: 700, marginBottom: 6,
+  };
+  const btnPrimary = {
+    padding: '11px 20px',
+    background: 'linear-gradient(135deg, #00dcff 0%, #0088aa 100%)',
+    color: '#050d1f',
+    border: 'none',
+    borderRadius: 10,
+    fontWeight: 700,
+    fontSize: 14,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.15s',
+    boxShadow: '0 2px 12px rgba(0,220,255,0.25)',
+  };
+  const btnOutline = {
+    padding: '9px 16px',
+    background: 'transparent',
+    border: `1.5px solid ${C.border}`,
+    borderRadius: 9,
+    fontSize: 13,
+    color: C.muted,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.15s',
+  };
+  const focusIn = (e) => { e.target.style.borderColor = C.accent; e.target.style.boxShadow = '0 0 0 3px rgba(0,220,255,0.12)'; };
+  const focusOut = (e) => { e.target.style.borderColor = 'rgba(0,220,255,0.15)'; e.target.style.boxShadow = 'none'; };
 
   const firstName = userName ? userName.split(' ')[0] : '';
 
@@ -357,19 +424,24 @@ export default function Dashboard({ token, role, onLogout }) {
 
   // ── RENDER ────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: C.bg }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, position: 'relative' }}>
+      {/* Background radial glows */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+        <div style={{ position: 'absolute', top: 0, right: 0, width: '40%', height: '40%', background: 'radial-gradient(circle, rgba(0,220,255,0.03) 0%, transparent 70%)' }} />
+        <div style={{ position: 'absolute', bottom: 0, left: '220px', width: '40%', height: '40%', background: 'radial-gradient(circle, rgba(124,58,237,0.03) 0%, transparent 70%)' }} />
+      </div>
 
       {/* ── Sidebar ────────────────────────────────────────────────────────── */}
       <aside style={{
         width: 220, position: 'fixed', top: 0, left: 0, height: '100vh',
-        background: C.sidebar, borderRight: `1px solid ${C.border}`,
+        background: C.sidebar, borderRight: `1px solid rgba(0,220,255,0.08)`,
         display: 'flex', flexDirection: 'column', zIndex: 100,
       }}>
         <div style={{ padding: '20px 20px 16px', borderBottom: `1px solid ${C.borderLight}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg, #00dcff, #0088aa)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 12px rgba(0,220,255,0.3)' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06080f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: C.text, letterSpacing: '-0.3px' }}>CampusCarGO</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '-0.3px', fontFamily: "'Orbitron', sans-serif" }}>CampusCarGO</span>
         </div>
 
         <nav style={{ flex: 1, padding: '10px 10px', overflowY: 'auto' }}>
@@ -382,14 +454,16 @@ export default function Dashboard({ token, role, onLogout }) {
               }} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                 padding: '9px 12px', marginBottom: 2,
-                background: active ? C.accentDim : 'transparent',
-                border: 'none', borderRadius: 8,
+                background: active ? 'rgba(0,220,255,0.08)' : 'transparent',
+                border: active ? `1px solid rgba(0,220,255,0.15)` : '1px solid transparent',
+                borderRadius: 9,
                 color: active ? C.accent : C.muted,
-                fontWeight: active ? 700 : 500, fontSize: 14,
+                fontWeight: active ? 700 : 500, fontSize: 13,
                 cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
                 transition: 'all 0.15s', position: 'relative',
+                boxShadow: active ? '0 0 12px rgba(0,220,255,0.1)' : 'none',
               }}
-              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = C.surface; e.currentTarget.style.color = C.text; } }}
+              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = C.text; } }}
               onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.muted; } }}
               >
                 {item.icon}
@@ -404,7 +478,7 @@ export default function Dashboard({ token, role, onLogout }) {
 
         {userName && (
           <div style={{ padding: '14px 16px', borderTop: `1px solid ${C.borderLight}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(userName), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{getInitials(userName)}</div>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(userName), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, border: '2px solid rgba(0,220,255,0.3)' }}>{getInitials(userName)}</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.3 }}>{userName}</div>
               <div style={{ fontSize: 11, color: C.faint, textTransform: 'capitalize' }}>{role}</div>
@@ -414,17 +488,18 @@ export default function Dashboard({ token, role, onLogout }) {
       </aside>
 
       {/* ── Main ─────────────────────────────────────────────────────────────── */}
-      <div style={{ marginLeft: 220, flex: 1, minWidth: 0 }}>
+      <div style={{ marginLeft: 220, flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
 
         {/* Header */}
         <header style={{
           position: 'sticky', top: 0, zIndex: 50,
-          background: 'rgba(244,243,255,0.9)', backdropFilter: 'blur(12px)',
-          borderBottom: `1px solid ${C.border}`,
+          background: 'rgba(6,8,15,0.9)', backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: `1px solid rgba(0,220,255,0.08)`,
           padding: '0 40px', height: 64,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: C.text }}>Welcome back, {firstName || '…'}</h1>
+          <h1 style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Welcome back, <span style={{ color: C.accent }}>{firstName || '…'}</span></h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={() => { setActivePage('notifications'); if (unreadCount > 0) handleMarkNotificationsRead(); }}
               style={{ position: 'relative', padding: 8, background: 'transparent', border: 'none', cursor: 'pointer', color: C.muted, borderRadius: 8, transition: 'background 0.15s' }}
@@ -434,9 +509,9 @@ export default function Dashboard({ token, role, onLogout }) {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
-              {unreadCount > 0 && <span style={{ position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: '50%', background: '#f97316', border: `2px solid ${C.bg}` }} />}
+              {unreadCount > 0 && <span style={{ position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: '50%', background: '#f97316', border: `2px solid ${C.bg}`, boxShadow: '0 0 6px #f97316' }} />}
             </button>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: getAvatarColor(userName), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, border: `2px solid ${C.border}` }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: getAvatarColor(userName), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, border: '2px solid rgba(0,220,255,0.3)' }}>
               {getInitials(userName)}
             </div>
           </div>
@@ -459,11 +534,12 @@ export default function Dashboard({ token, role, onLogout }) {
       {toast && (
         <div style={{
           position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
-          background: toast.type === 'success' ? '#f0fdf4' : '#fef2f2',
-          border: `1px solid ${toast.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+          background: toast.type === 'success' ? 'rgba(16,217,138,0.12)' : 'rgba(255,51,102,0.12)',
+          border: `1px solid ${toast.type === 'success' ? 'rgba(16,217,138,0.3)' : 'rgba(255,51,102,0.3)'}`,
           color: toast.type === 'success' ? C.successText : C.errorText,
-          padding: '11px 22px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)', zIndex: 2000,
+          padding: '11px 22px', borderRadius: 12, fontSize: 13, fontWeight: 600,
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.5)', zIndex: 2000,
           animation: 'fadeUp 0.3s ease both', pointerEvents: 'none', maxWidth: 380, textAlign: 'center',
         }}>{toast.msg}</div>
       )}
@@ -485,10 +561,13 @@ export default function Dashboard({ token, role, onLogout }) {
                 { label: 'Match Score', value: analytics.avg_score != null ? `${Math.round(analytics.avg_score)}%` : '—' },
                 { label: 'Rating', value: analytics.avg_rating != null ? Number(analytics.avg_rating).toFixed(1) : '—', stars: analytics.avg_rating },
               ].map((s, i) => (
-                <div key={i} style={{ ...card, padding: '18px 20px' }}>
-                  <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: 6 }}>{s.label}</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: C.text, lineHeight: 1 }}>{s.value}</div>
-                  {s.stars != null && <div style={{ marginTop: 4, fontSize: 14 }}>{renderStars(s.stars)}</div>}
+                <div key={i} style={{ ...card, overflow: 'hidden' }}>
+                  <div style={{ height: 2, background: 'linear-gradient(90deg, #00dcff, #7c3aed)', margin: '-1px -1px 0', borderRadius: '14px 14px 0 0' }} />
+                  <div style={{ padding: '18px 20px' }}>
+                    <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: 6 }}>{s.label}</div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: C.text, lineHeight: 1, fontFamily: "'Orbitron', sans-serif" }}>{s.value}</div>
+                    {s.stars != null && <div style={{ marginTop: 6, fontSize: 14 }}>{renderStars(s.stars)}</div>}
+                  </div>
                 </div>
               ))}
             </div>
@@ -500,11 +579,11 @@ export default function Dashboard({ token, role, onLogout }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: C.accent, flexShrink: 0 }} />
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: C.accent, flexShrink: 0, boxShadow: `0 0 8px ${C.accent}` }} />
                     <span style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{activeRide.start_location}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 2 }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.faint} strokeWidth="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill={C.faint}/></svg>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: C.successText, flexShrink: 0, boxShadow: `0 0 8px ${C.successText}` }} />
                     <span style={{ fontSize: 14, color: C.muted }}>SCT Campus</span>
                   </div>
                 </div>
@@ -525,7 +604,7 @@ export default function Dashboard({ token, role, onLogout }) {
             <div style={{ padding: '20px 24px', borderBottom: `1px solid ${C.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                 Pending Requests
-                {requests.length > 0 && <span style={{ background: C.accent, color: '#fff', borderRadius: 10, fontSize: 10, fontWeight: 800, padding: '1px 7px' }}>{requests.length}</span>}
+                {requests.length > 0 && <span style={{ background: C.accent, color: '#050d1f', borderRadius: 10, fontSize: 10, fontWeight: 800, padding: '1px 7px' }}>{requests.length}</span>}
               </div>
               <button onClick={fetchRequests} style={{ ...btnOutline, fontSize: 11, padding: '5px 12px' }}>Refresh</button>
             </div>
@@ -535,7 +614,7 @@ export default function Dashboard({ token, role, onLogout }) {
               ) : requests.map((r, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: i < requests.length - 1 ? `1px solid ${C.borderLight}` : 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(r.passenger_name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{getInitials(r.passenger_name)}</div>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(r.passenger_name), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{getInitials(r.passenger_name)}</div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{r.passenger_name}</div>
                       <div style={{ fontSize: 12, color: C.muted }}>{r.pickup_location}</div>
@@ -543,7 +622,7 @@ export default function Dashboard({ token, role, onLogout }) {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {r.score != null && (
-                      <span style={{ fontSize: 12, fontWeight: 800, color: r.score >= 60 ? C.successText : r.score >= 35 ? '#d97706' : C.errorText, background: r.score >= 60 ? '#f0fdf4' : r.score >= 35 ? '#fffbeb' : '#fef2f2', border: `1px solid ${r.score >= 60 ? '#bbf7d0' : r.score >= 35 ? '#fde68a' : '#fecaca'}`, padding: '3px 8px', borderRadius: 20 }}>{Math.round(r.score)}%</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: r.score >= 60 ? C.successText : r.score >= 35 ? C.warningText : C.errorText, background: r.score >= 60 ? C.successBg : r.score >= 35 ? 'rgba(251,191,36,0.08)' : C.errorBg, border: `1px solid ${r.score >= 60 ? C.successBorder : r.score >= 35 ? 'rgba(251,191,36,0.25)' : C.errorBorder}`, padding: '3px 8px', borderRadius: 20 }}>{Math.round(r.score)}%</span>
                     )}
                     <button onClick={() => handleRespond(r.id, 'accepted')} style={{ background: 'none', border: 'none', color: C.accent, fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '4px 8px', fontFamily: 'inherit' }}>Accept</button>
                     <button onClick={() => handleRespond(r.id, 'rejected')} style={{ background: 'none', border: 'none', color: C.errorText, fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '4px 8px', fontFamily: 'inherit' }}>Decline</button>
@@ -575,16 +654,16 @@ export default function Dashboard({ token, role, onLogout }) {
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              <div style={{ background: C.surface, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.borderLight}` }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '10px 12px', border: `1px solid rgba(0,220,255,0.1)` }}>
                 <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 }}>Pickup</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{acceptedRide.pickup_location}</div>
               </div>
-              <div style={{ background: C.surface, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.borderLight}` }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '10px 12px', border: `1px solid rgba(0,220,255,0.1)` }}>
                 <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 }}>Drop-off</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>SCT Campus</div>
               </div>
             </div>
-            <button onClick={() => handleCancelRequest(acceptedRide.id)} style={{ ...btnOutline, width: '100%', color: C.errorText, borderColor: '#fecaca', textAlign: 'center' }}>Cancel Ride</button>
+            <button onClick={() => handleCancelRequest(acceptedRide.id)} style={{ ...btnOutline, width: '100%', color: C.errorText, borderColor: C.errorBorder, textAlign: 'center' }}>Cancel Ride</button>
           </div>
         )}
 
@@ -613,7 +692,7 @@ export default function Dashboard({ token, role, onLogout }) {
 
         {myStatus.length === 0 && (
           <div style={{ ...card, padding: '48px 32px', textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🚗</div>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={C.faint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
             <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 6 }}>No rides yet</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Find a driver heading to SCT near you.</div>
             <button onClick={() => setActivePage('find')} style={btnPrimary}>Find a Ride</button>
@@ -631,11 +710,11 @@ export default function Dashboard({ token, role, onLogout }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
             <div>
               <label style={labelStyle}>Date</label>
-              <input type="date" value={departureDate} min={new Date().toISOString().split('T')[0]} onChange={e => setDepartureDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'light' }} onFocus={focusIn} onBlur={focusOut} />
+              <input type="date" value={departureDate} min={new Date().toISOString().split('T')[0]} onChange={e => setDepartureDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' }} onFocus={focusIn} onBlur={focusOut} />
             </div>
             <div>
               <label style={labelStyle}>Time</label>
-              <input type="time" value={departureTimeStr} onChange={e => setDepartureTimeStr(e.target.value)} style={{ ...inputStyle, colorScheme: 'light' }} onFocus={focusIn} onBlur={focusOut} />
+              <input type="time" value={departureTimeStr} onChange={e => setDepartureTimeStr(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' }} onFocus={focusIn} onBlur={focusOut} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10, marginBottom: 14 }}>
@@ -647,7 +726,7 @@ export default function Dashboard({ token, role, onLogout }) {
             })}
           </div>
           {message && (
-            <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13, background: messageType === 'success' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${messageType === 'success' ? '#bbf7d0' : '#fecaca'}`, color: messageType === 'success' ? C.successText : C.errorText }}>{message}</div>
+            <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13, background: messageType === 'success' ? C.successBg : C.errorBg, border: `1px solid ${messageType === 'success' ? C.successBorder : C.errorBorder}`, color: messageType === 'success' ? C.successText : C.errorText }}>{message}</div>
           )}
           <button onClick={handleFindRides} disabled={loading} style={{ ...btnPrimary, width: '100%', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
             {loading ? 'Searching…' : 'Search'}
@@ -659,7 +738,7 @@ export default function Dashboard({ token, role, onLogout }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Filters</span>
-                {activeFilterCount > 0 && <span style={{ background: C.accent, color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 10 }}>{activeFilterCount}</span>}
+                {activeFilterCount > 0 && <span style={{ background: C.accent, color: '#050d1f', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 10 }}>{activeFilterCount}</span>}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 12, color: C.faint }}>Showing {filteredMatches.length} of {matches.length}</span>
@@ -696,18 +775,28 @@ export default function Dashboard({ token, role, onLogout }) {
           <>
             <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 16 }}>Smart Matches</div>
             {filteredMatches.map((m, i) => {
-              const scoreColor = m.compatibility_score >= 60 ? C.successText : m.compatibility_score >= 35 ? '#d97706' : C.errorText;
+              const score = m.compatibility_score;
+              const scoreColor = score >= 60 ? C.successText : score >= 35 ? C.warningText : C.errorText;
+              const scoreBarGradient = score >= 60
+                ? 'linear-gradient(90deg, #10d98a, #00ff88)'
+                : score >= 35
+                  ? 'linear-gradient(90deg, #fbbf24, #f97316)'
+                  : 'linear-gradient(90deg, #ff3366, #ff6688)';
               const fullyBooked = m.available_seats === 0;
               return (
-                <div key={i} style={{ ...card, padding: 20, marginBottom: 12, animation: `fadeUp 0.3s ${i * 0.05}s ease both` }}>
+                <div key={i}
+                  style={{ ...card, padding: 20, marginBottom: 12, animation: `fadeUp 0.3s ${i * 0.05}s ease both`, transition: 'box-shadow 0.2s, border-color 0.2s', cursor: 'default' }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 32px rgba(0,220,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(0,220,255,0.25)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.4)'; e.currentTarget.style.borderColor = C.border; }}
+                >
                   <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 14 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(m.driver_name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700 }}>{getInitials(m.driver_name)}</div>
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(m.driver_name), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700 }}>{getInitials(m.driver_name)}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                           <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>
                             {m.driver_name}
-                            {m.driver_avg_rating && <span style={{ fontSize: 12, color: '#d97706', fontWeight: 500, marginLeft: 8 }}>★ {Number(m.driver_avg_rating).toFixed(1)}</span>}
+                            {m.driver_avg_rating && <span style={{ fontSize: 12, color: C.warningText, fontWeight: 500, marginLeft: 8 }}>★ {Number(m.driver_avg_rating).toFixed(1)}</span>}
                           </div>
                           <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
                             {m.start_location} → SCT Campus · {new Date(m.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {m.available_seats} seats
@@ -716,9 +805,10 @@ export default function Dashboard({ token, role, onLogout }) {
                         <div style={{ position: 'relative', width: 52, height: 52, flexShrink: 0 }}>
                           <svg viewBox="0 0 36 36" width="52" height="52" style={{ transform: 'rotate(-90deg)' }}>
                             <circle cx="18" cy="18" r="15.9" fill="none" stroke={C.borderLight} strokeWidth="3" />
-                            <circle cx="18" cy="18" r="15.9" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={`${m.compatibility_score} 100`} strokeLinecap="round" />
+                            <circle cx="18" cy="18" r="15.9" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={`${score} 100`} strokeLinecap="round"
+                              style={{ filter: score >= 60 ? `drop-shadow(0 0 3px ${scoreColor})` : 'none' }} />
                           </svg>
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: scoreColor }}>{m.compatibility_score}%</div>
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: scoreColor }}>{score}%</div>
                         </div>
                       </div>
                     </div>
@@ -727,22 +817,31 @@ export default function Dashboard({ token, role, onLogout }) {
                   {m.score_breakdown && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
                       {[{ label: 'Detour', value: m.score_breakdown.detour }, { label: 'Time', value: m.score_breakdown.time }, { label: 'Proximity', value: m.score_breakdown.proximity }].map((b, j) => {
-                        const c = b.value >= 60 ? C.successText : b.value >= 35 ? '#d97706' : C.errorText;
+                        const c = b.value >= 60 ? C.successText : b.value >= 35 ? C.warningText : C.errorText;
+                        const barGrad = b.value >= 60 ? 'linear-gradient(90deg, #10d98a, #00ff88)' : b.value >= 35 ? 'linear-gradient(90deg, #fbbf24, #f97316)' : 'linear-gradient(90deg, #ff3366, #ff6688)';
                         return (
                           <div key={j}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.faint, marginBottom: 4 }}><span>{b.label}</span><span style={{ color: c, fontWeight: 700 }}>{b.value}%</span></div>
-                            <div style={{ height: 4, background: C.borderLight, borderRadius: 2 }}><div style={{ width: `${b.value}%`, height: '100%', background: c, borderRadius: 2, transition: 'width 0.6s ease' }} /></div>
+                            <div style={{ height: 3, background: C.borderLight, borderRadius: 2 }}><div style={{ width: `${b.value}%`, height: '100%', background: barGrad, borderRadius: 2, transition: 'width 0.6s ease' }} /></div>
                           </div>
                         );
                       })}
                     </div>
                   )}
 
-                  <button onClick={() => handleToggleMap(m.ride_id)} style={{ width: '100%', padding: 8, marginBottom: 10, background: expandedMatchId === m.ride_id ? C.accentDim : C.surface, color: expandedMatchId === m.ride_id ? C.accent : C.muted, border: `1px solid ${expandedMatchId === m.ride_id ? '#c7c7ff' : C.border}`, borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                  <button onClick={() => handleToggleMap(m.ride_id)} style={{ width: '100%', padding: 8, marginBottom: 10, background: expandedMatchId === m.ride_id ? C.accentDim : C.surface, color: expandedMatchId === m.ride_id ? C.accent : C.muted, border: `1px solid ${expandedMatchId === m.ride_id ? 'rgba(0,220,255,0.3)' : C.border}`, borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
                     {expandedMatchId === m.ride_id ? '▲ Hide map' : '▼ Show map'}
                   </button>
-                  {expandedMatchId === m.ride_id && polylines[m.ride_id] && <RoutePreviewMap coordinates={polylines[m.ride_id]} pickupLat={pickupLocation?.lat} pickupLng={pickupLocation?.lng} />}
-                  {expandedMatchId === m.ride_id && !polylines[m.ride_id] && <div style={{ height: 200, background: C.surface, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13, marginBottom: 12 }}>Loading map…</div>}
+
+                  {expandedMatchId === m.ride_id && (
+                    polylines[m.ride_id] === undefined ? (
+                      <div style={{ height: 200, background: C.surface, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13, marginBottom: 12 }}>Loading map…</div>
+                    ) : polylines[m.ride_id] && polylines[m.ride_id].length > 0 ? (
+                      <RoutePreviewMap coordinates={polylines[m.ride_id]} pickupLat={pickupLocation?.lat} pickupLng={pickupLocation?.lng} />
+                    ) : (
+                      <div style={{ height: 200, background: C.surface, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13, marginBottom: 12 }}>Route preview not available</div>
+                    )
+                  )}
 
                   {fullyBooked && <div style={{ fontSize: 12, color: C.errorText, fontWeight: 600, marginBottom: 8 }}>Fully Booked</div>}
                   <button onClick={() => !fullyBooked && handleRequestRide(m)} disabled={fullyBooked} style={{ ...btnPrimary, width: '100%', opacity: fullyBooked ? 0.5 : 1, cursor: fullyBooked ? 'not-allowed' : 'pointer' }}>Request</button>
@@ -754,7 +853,7 @@ export default function Dashboard({ token, role, onLogout }) {
 
         {matches.length === 0 && !message && (
           <div style={{ ...card, padding: '48px 32px', textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={C.faint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <div style={{ fontSize: 14, color: C.muted }}>Enter your pickup location and search for available rides.</div>
           </div>
         )}
@@ -771,7 +870,7 @@ export default function Dashboard({ token, role, onLogout }) {
             <MapPicker label="Start Location" onLocationSelect={setPickupLocation} />
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>End Location</label>
-              <div style={{ padding: '10px 12px', background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 14, color: C.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ padding: '11px 14px', background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 10, fontSize: 14, color: C.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill={C.faint}><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
                 SCT Campus
               </div>
@@ -779,22 +878,22 @@ export default function Dashboard({ token, role, onLogout }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div>
                 <label style={labelStyle}>Date</label>
-                <input type="date" value={departureDate} min={new Date().toISOString().split('T')[0]} onChange={e => setDepartureDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'light' }} onFocus={focusIn} onBlur={focusOut} />
+                <input type="date" value={departureDate} min={new Date().toISOString().split('T')[0]} onChange={e => setDepartureDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' }} onFocus={focusIn} onBlur={focusOut} />
               </div>
               <div>
                 <label style={labelStyle}>Time</label>
-                <input type="time" value={departureTimeStr} onChange={e => setDepartureTimeStr(e.target.value)} style={{ ...inputStyle, colorScheme: 'light' }} onFocus={focusIn} onBlur={focusOut} />
+                <input type="time" value={departureTimeStr} onChange={e => setDepartureTimeStr(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' }} onFocus={focusIn} onBlur={focusOut} />
               </div>
             </div>
             <div style={{ marginBottom: 20 }}>
               <label style={labelStyle}>Available Seats</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
                 <button onClick={() => setSeats(s => Math.max(1, s - 1))} style={{ width: 32, height: 32, borderRadius: '50%', border: `1.5px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>−</button>
-                <span style={{ fontSize: 22, fontWeight: 800, color: C.text, minWidth: 24, textAlign: 'center' }}>{seats}</span>
+                <span style={{ fontSize: 22, fontWeight: 800, color: C.text, minWidth: 24, textAlign: 'center', fontFamily: "'Orbitron', sans-serif" }}>{seats}</span>
                 <button onClick={() => setSeats(s => Math.min(8, s + 1))} style={{ width: 32, height: 32, borderRadius: '50%', border: `1.5px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>+</button>
               </div>
             </div>
-            {message && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13, background: messageType === 'success' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${messageType === 'success' ? '#bbf7d0' : '#fecaca'}`, color: messageType === 'success' ? C.successText : C.errorText }}>{message}</div>}
+            {message && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13, background: messageType === 'success' ? C.successBg : C.errorBg, border: `1px solid ${messageType === 'success' ? C.successBorder : C.errorBorder}`, color: messageType === 'success' ? C.successText : C.errorText }}>{message}</div>}
             <button onClick={handlePostRide} disabled={loading} style={{ ...btnPrimary, width: '100%', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
               {loading ? 'Creating…' : 'Create Ride'}
             </button>
@@ -802,12 +901,33 @@ export default function Dashboard({ token, role, onLogout }) {
 
           <div style={{ ...card, padding: 24 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 16 }}>Route Preview</div>
-            <div style={{ height: 320, background: C.surface, borderRadius: 10, border: `1.5px dashed ${C.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.faint, gap: 12 }}>
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16,3 21,3 21,8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21,16 21,21 16,21"/><line x1="15" y1="15" x2="21" y2="21"/>
-              </svg>
-              <span style={{ fontSize: 13 }}>Map preview will appear here</span>
-            </div>
+            {pickupLocation ? (
+              <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                <MapContainer
+                  key={`offer-${pickupLocation.lat}-${pickupLocation.lng}`}
+                  center={[pickupLocation.lat, pickupLocation.lng]}
+                  zoom={12}
+                  style={{ height: '280px', width: '100%' }}
+                  scrollWheelZoom={false}
+                  attributionControl={false}
+                  zoomControl={false}
+                >
+                  <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                  <FitBounds latLngs={[[pickupLocation.lat, pickupLocation.lng], [8.5241, 76.9366]]} />
+                  <CircleMarker center={[pickupLocation.lat, pickupLocation.lng]} radius={9}
+                    color="#06080f" fillColor={C.accent} fillOpacity={1} weight={2} />
+                  <CircleMarker center={[8.5241, 76.9366]} radius={9}
+                    color="#06080f" fillColor={C.successText} fillOpacity={1} weight={2} />
+                </MapContainer>
+              </div>
+            ) : (
+              <div style={{ height: 280, background: C.surface, borderRadius: 12, border: `1px dashed ${C.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.faint, gap: 12 }}>
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="16,3 21,3 21,8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21,16 21,21 16,21"/><line x1="15" y1="15" x2="21" y2="21"/>
+                </svg>
+                <span style={{ fontSize: 13 }}>Select a start location to preview route</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -818,11 +938,14 @@ export default function Dashboard({ token, role, onLogout }) {
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>{['Route', 'Time', 'Seats', 'Status', ''].map(h => <th key={h} style={{ textAlign: 'left', fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, padding: '12px 24px 10px', borderBottom: `1px solid ${C.border}` }}>{h}</th>)}</tr>
+                <tr>{['Route', 'Time', 'Seats', 'Status', ''].map(h => <th key={h} style={{ textAlign: 'left', fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, padding: '12px 24px 10px', borderBottom: `1px solid ${C.border}`, background: 'rgba(0,220,255,0.04)' }}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {myRides.map((r, i) => (
-                  <tr key={i} style={{ borderBottom: i < myRides.length - 1 ? `1px solid ${C.borderLight}` : 'none' }}>
+                  <tr key={i} style={{ borderBottom: i < myRides.length - 1 ? `1px solid ${C.borderLight}` : 'none', transition: 'background 0.1s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,220,255,0.02)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
                     <td style={{ padding: '12px 24px', fontSize: 14, fontWeight: 600, color: C.text }}>{r.start_location} → SCT</td>
                     <td style={{ padding: '12px 24px', fontSize: 13, color: C.muted }}>{new Date(r.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                     <td style={{ padding: '12px 24px', fontSize: 13, color: C.muted }}>{r.available_seats}</td>
@@ -848,7 +971,7 @@ export default function Dashboard({ token, role, onLogout }) {
 
         {myRides.length === 0 ? (
           <div style={{ ...card, padding: '48px 32px', textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🚗</div>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={C.faint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
             <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 6 }}>No rides posted yet</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Offer a ride to get started.</div>
             <button onClick={() => setActivePage('offer')} style={btnPrimary}>Offer a Ride</button>
@@ -865,11 +988,11 @@ export default function Dashboard({ token, role, onLogout }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.accent, flexShrink: 0 }} />
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.accent, flexShrink: 0, boxShadow: `0 0 6px ${C.accent}` }} />
                         <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{ride.start_location}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 2 }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill={C.faint}><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.successText, flexShrink: 0, boxShadow: `0 0 6px ${C.successText}` }} />
                         <span style={{ fontSize: 13, color: C.muted }}>SCT Campus</span>
                       </div>
                     </div>
@@ -890,7 +1013,7 @@ export default function Dashboard({ token, role, onLogout }) {
                       </button>
                     )}
                     {ride.status === 'in_progress' && (
-                      <button onClick={() => handleCompleteRide(ride.id)} style={{ ...btnPrimary, fontSize: 13, padding: '8px 16px', background: C.successText }}>
+                      <button onClick={() => handleCompleteRide(ride.id)} style={{ ...btnPrimary, fontSize: 13, padding: '8px 16px', background: 'linear-gradient(135deg, #10d98a, #0aaa66)' }}>
                         Complete Trip
                       </button>
                     )}
@@ -899,7 +1022,7 @@ export default function Dashboard({ token, role, onLogout }) {
                         {isExpanded ? 'Hide Passengers' : 'View Passengers'}
                       </button>
                     )}
-                    <button onClick={() => handleDeleteRide(ride.id)} style={{ ...btnOutline, fontSize: 13, padding: '8px 14px', color: C.errorText, borderColor: '#fecaca', marginLeft: 'auto' }}>
+                    <button onClick={() => handleDeleteRide(ride.id)} style={{ ...btnOutline, fontSize: 13, padding: '8px 14px', color: C.errorText, borderColor: C.errorBorder, marginLeft: 'auto' }}>
                       Delete
                     </button>
                   </div>
@@ -918,7 +1041,7 @@ export default function Dashboard({ token, role, onLogout }) {
                         {passengers.map((p, i) => (
                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < passengers.length - 1 ? `1px solid ${C.borderLight}` : 'none' }}>
                             <div style={{ width: 28, height: 28, borderRadius: '50%', background: C.surface, border: `1.5px solid ${C.border}`, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
-                            <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(p.passenger_name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{getInitials(p.passenger_name)}</div>
+                            <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(p.passenger_name), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{getInitials(p.passenger_name)}</div>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.passenger_name}</div>
                               <div style={{ fontSize: 11, color: C.muted }}>{p.pickup_location}</div>
@@ -964,7 +1087,7 @@ export default function Dashboard({ token, role, onLogout }) {
                 onMouseEnter={e => { if (chatRideId !== item.id) e.currentTarget.style.background = C.surface; }}
                 onMouseLeave={e => { if (chatRideId !== item.id) e.currentTarget.style.background = 'transparent'; }}
               >
-                <div style={{ width: 40, height: 40, borderRadius: '50%', background: getAvatarColor(item.name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{getInitials(item.name)}</div>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', background: getAvatarColor(item.name), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{getInitials(item.name)}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{item.name}</div>
                   <div style={{ fontSize: 12, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.sub}</div>
@@ -980,7 +1103,7 @@ export default function Dashboard({ token, role, onLogout }) {
           ) : (
             <>
               <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                {selected && <div style={{ width: 36, height: 36, borderRadius: '50%', background: getAvatarColor(selected.name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{getInitials(selected.name)}</div>}
+                {selected && <div style={{ width: 36, height: 36, borderRadius: '50%', background: getAvatarColor(selected.name), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{getInitials(selected.name)}</div>}
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{selected?.name || 'Chat'}</div>
                   <div style={{ fontSize: 11, color: C.successText }}>Online</div>
@@ -988,13 +1111,19 @@ export default function Dashboard({ token, role, onLogout }) {
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
                 {chatMessages.length === 0 ? (
-                  <div style={{ textAlign: 'center', color: C.faint, fontSize: 13, marginTop: 32 }}>No messages yet. Say hi! 👋</div>
+                  <div style={{ textAlign: 'center', color: C.faint, fontSize: 13, marginTop: 32 }}>No messages yet. Say hi!</div>
                 ) : chatMessages.map((msg, i) => {
                   const isMine = msg.sender_id === myUserId;
                   return (
                     <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginBottom: 14 }}>
                       {!isMine && <div style={{ fontSize: 11, color: C.faint, marginBottom: 3, paddingLeft: 4 }}>{msg.sender_name}</div>}
-                      <div style={{ maxWidth: '70%', padding: '9px 14px', borderRadius: 16, borderBottomRightRadius: isMine ? 4 : 16, borderBottomLeftRadius: isMine ? 16 : 4, background: isMine ? C.accent : C.surface, color: isMine ? '#fff' : C.text, fontSize: 13, lineHeight: 1.5, border: isMine ? 'none' : `1px solid ${C.border}` }}>{msg.message}</div>
+                      <div style={{
+                        maxWidth: '70%', padding: '9px 14px', borderRadius: 16,
+                        borderBottomRightRadius: isMine ? 4 : 16, borderBottomLeftRadius: isMine ? 16 : 4,
+                        background: isMine ? 'linear-gradient(135deg, rgba(0,220,255,0.2), rgba(0,220,255,0.1))' : 'rgba(255,255,255,0.04)',
+                        color: C.text, fontSize: 13, lineHeight: 1.5,
+                        border: isMine ? '1px solid rgba(0,220,255,0.2)' : `1px solid rgba(255,255,255,0.06)`,
+                      }}>{msg.message}</div>
                       <div style={{ fontSize: 10, color: C.faint, marginTop: 3, padding: '0 4px' }}>{relativeTimeShort(msg.created_at)}</div>
                     </div>
                   );
@@ -1003,10 +1132,10 @@ export default function Dashboard({ token, role, onLogout }) {
               </div>
               <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 10, flexShrink: 0 }}>
                 <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendMessage()} placeholder="Type a message…"
-                  style={{ flex: 1, padding: '10px 16px', border: `1.5px solid ${C.border}`, borderRadius: 24, fontSize: 13, outline: 'none', background: '#fff', color: C.text, fontFamily: 'inherit', transition: 'border-color 0.15s' }}
+                  style={{ flex: 1, padding: '10px 16px', border: `1.5px solid ${C.border}`, borderRadius: 24, fontSize: 13, outline: 'none', background: 'rgba(255,255,255,0.04)', color: C.text, fontFamily: 'inherit', transition: 'border-color 0.15s' }}
                   onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.border}
                 />
-                <button onClick={handleSendMessage} disabled={!chatInput.trim() || chatSending} style={{ width: 40, height: 40, borderRadius: '50%', background: chatInput.trim() ? C.accent : C.surface, border: `1.5px solid ${chatInput.trim() ? C.accent : C.border}`, color: chatInput.trim() ? '#fff' : C.faint, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: chatInput.trim() ? 'pointer' : 'not-allowed', flexShrink: 0, transition: 'all 0.15s' }}>
+                <button onClick={handleSendMessage} disabled={!chatInput.trim() || chatSending} style={{ width: 40, height: 40, borderRadius: '50%', background: chatInput.trim() ? 'linear-gradient(135deg, #00dcff, #0088aa)' : C.surface, border: `1.5px solid ${chatInput.trim() ? C.accent : C.border}`, color: chatInput.trim() ? '#06080f' : C.faint, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: chatInput.trim() ? 'pointer' : 'not-allowed', flexShrink: 0, transition: 'all 0.15s' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
                 </button>
               </div>
@@ -1029,7 +1158,7 @@ export default function Dashboard({ token, role, onLogout }) {
         <div style={{ fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 24 }}>Notifications</div>
         {notifications.length === 0 ? (
           <div style={{ ...card, padding: '48px 32px', textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🔔</div>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={C.faint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <div style={{ fontSize: 14, color: C.muted }}>No notifications yet.</div>
           </div>
         ) : (
@@ -1041,7 +1170,7 @@ export default function Dashboard({ token, role, onLogout }) {
                   <div style={{ fontSize: 14, color: C.text, lineHeight: 1.5 }}>{n.message}</div>
                   <div style={{ fontSize: 12, color: C.faint, marginTop: 3 }}>{relativeTimeShort(n.created_at)}</div>
                 </div>
-                {!n.read && <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.accent, flexShrink: 0, marginTop: 6 }} />}
+                {!n.read && <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.accent, flexShrink: 0, marginTop: 6, boxShadow: `0 0 6px ${C.accent}` }} />}
               </div>
             ))}
           </div>
@@ -1056,26 +1185,29 @@ export default function Dashboard({ token, role, onLogout }) {
         <div style={{ fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 24 }}>Ride History</div>
         {history.length === 0 ? (
           <div style={{ ...card, padding: '48px 32px', textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={C.faint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-9.98L23 10"/></svg>
             <div style={{ fontSize: 14, color: C.muted }}>No completed rides yet.</div>
           </div>
         ) : (
           <div style={card}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>{['Date', 'Route', 'Role', 'Rating'].map(h => <th key={h} style={{ textAlign: 'left', fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, padding: '16px 20px 12px', borderBottom: `1px solid ${C.border}` }}>{h}</th>)}</tr>
+                <tr>{['Date', 'Route', 'Role', 'Rating'].map(h => <th key={h} style={{ textAlign: 'left', fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, padding: '16px 20px 12px', borderBottom: `1px solid ${C.border}`, background: 'rgba(0,220,255,0.04)' }}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {history.map((h, i) => {
                   const rating = role === 'driver' ? h.avg_rating_received : (h.rating_given ?? h.rating_received);
                   const ratingFull = rating != null ? Math.round(Number(rating)) : null;
                   return (
-                    <tr key={i} style={{ borderBottom: i < history.length - 1 ? `1px solid ${C.borderLight}` : 'none' }}>
+                    <tr key={i} style={{ borderBottom: i < history.length - 1 ? `1px solid ${C.borderLight}` : 'none', transition: 'background 0.1s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,220,255,0.02)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
                       <td style={{ padding: '14px 20px', fontSize: 13, color: C.muted, whiteSpace: 'nowrap' }}>{new Date(h.departure_time).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                       <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: C.text }}>{h.start_location} → SCT Campus</td>
                       <td style={{ padding: '14px 20px', fontSize: 13, color: C.muted, textTransform: 'capitalize' }}>{role}</td>
                       <td style={{ padding: '14px 20px' }}>
-                        {ratingFull != null ? <span style={{ color: '#f59e0b', fontSize: 15, letterSpacing: '2px' }}>{'★'.repeat(ratingFull)}<span style={{ color: C.borderLight }}>{'★'.repeat(5 - ratingFull)}</span></span> : <span style={{ color: C.faint, fontSize: 13 }}>—</span>}
+                        {ratingFull != null ? <span style={{ color: C.warningText, fontSize: 15, letterSpacing: '2px' }}>{'★'.repeat(ratingFull)}<span style={{ color: C.faint }}>{'★'.repeat(5 - ratingFull)}</span></span> : <span style={{ color: C.faint, fontSize: 13 }}>—</span>}
                       </td>
                     </tr>
                   );
@@ -1097,24 +1229,24 @@ export default function Dashboard({ token, role, onLogout }) {
     return (
       <div style={{ maxWidth: 500, margin: '0 auto' }}>
         <div style={{ ...card, padding: '40px 32px', textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ width: 80, height: 80, borderRadius: '50%', margin: '0 auto 16px', background: getAvatarColor(userName), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800 }}>{getInitials(userName)}</div>
+          <div style={{ width: 80, height: 80, borderRadius: '50%', margin: '0 auto 16px', background: getAvatarColor(userName), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800, border: '3px solid rgba(0,220,255,0.3)', boxShadow: '0 0 20px rgba(0,220,255,0.2)' }}>{getInitials(userName)}</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: C.text, marginBottom: 4 }}>{userName}</div>
           <div style={{ fontSize: 14, color: C.muted, marginBottom: 8 }}>{userRegNumber}</div>
           {avgRating != null && (
             <div style={{ fontSize: 16, marginBottom: 8 }}>
-              <span style={{ color: '#f59e0b' }}>{'★'.repeat(ratingFull)}</span><span style={{ color: C.borderLight }}>{'★'.repeat(5 - ratingFull)}</span>
+              <span style={{ color: C.warningText }}>{'★'.repeat(ratingFull)}</span><span style={{ color: C.faint }}>{'★'.repeat(5 - ratingFull)}</span>
               <span style={{ color: C.muted, fontSize: 14, marginLeft: 6 }}>{Number(avgRating).toFixed(1)}</span>
             </div>
           )}
-          <span style={{ background: C.accentDim, color: C.accent, border: `1px solid #c7c7ff`, padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, textTransform: 'capitalize' }}>{role}</span>
+          <span style={{ background: C.accentDim, color: C.accent, border: `1px solid rgba(0,220,255,0.3)`, padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, textTransform: 'capitalize' }}>{role}</span>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 28, marginBottom: 28 }}>
             <div>
-              <div style={{ fontSize: 30, fontWeight: 800, color: C.text }}>{totalRides}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: C.text, fontFamily: "'Orbitron', sans-serif" }}>{totalRides}</div>
               <div style={{ fontSize: 12, color: C.muted }}>Total Rides</div>
             </div>
             <div>
-              <div style={{ fontSize: 30, fontWeight: 800, color: C.text }}>{avgRating != null ? Number(avgRating).toFixed(1) : '—'}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: C.text, fontFamily: "'Orbitron', sans-serif" }}>{avgRating != null ? Number(avgRating).toFixed(1) : '—'}</div>
               <div style={{ fontSize: 12, color: C.muted }}>Avg Rating</div>
             </div>
           </div>
@@ -1141,7 +1273,7 @@ export default function Dashboard({ token, role, onLogout }) {
                   <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
                     {[1, 2, 3, 4, 5].map(star => (
                       <button key={star} onClick={() => setRatingStars(star)} onMouseEnter={() => setRatingHover(star)} onMouseLeave={() => setRatingHover(0)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 30, padding: '0 2px', color: star <= (ratingHover || ratingStars) ? '#f59e0b' : C.borderLight, transition: 'color 0.1s, transform 0.1s', transform: star <= (ratingHover || ratingStars) ? 'scale(1.15)' : 'scale(1)' }}>★</button>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 30, padding: '0 2px', color: star <= (ratingHover || ratingStars) ? C.warningText : C.faint, transition: 'color 0.1s, transform 0.1s', transform: star <= (ratingHover || ratingStars) ? 'scale(1.15)' : 'scale(1)' }}>★</button>
                     ))}
                   </div>
                   <button onClick={() => ratingStars > 0 && handleRate(pr.ride_id, pr.ratee_id, ratingStars)} disabled={ratingStars === 0}

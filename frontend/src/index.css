@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Barlow:wght@300;400;500;600;700&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -7,29 +7,29 @@
 }
 
 :root {
-  --bg:             #F7E7CE;
-  --sidebar:        #FEFAF3;
-  --card:           #FEFAF3;
-  --surface:        #F2DDBC;
-  --border:         #DDD0B3;
-  --border-light:   #EAE0CC;
-  --accent:         #102C26;
-  --accent-dark:    #0A1E1A;
-  --accent-light:   #D4E8E2;
-  --accent-dim:     rgba(16,44,38,0.08);
-  --text:           #102C26;
-  --muted:          #4A6A5E;
-  --faint:          #8AAA9E;
-  --success:        #16a34a;
-  --success-bg:     #f0fdf4;
-  --success-border: #bbf7d0;
-  --error:          #dc2626;
-  --error-bg:       #fef2f2;
-  --error-border:   #fecaca;
-  --info:           #2563eb;
-  --info-bg:        #eff6ff;
-  --info-border:    #bfdbfe;
-  --warning:        #d97706;
+  --bg:             #06080f;
+  --sidebar:        #090e1a;
+  --card:           rgba(255,255,255,0.03);
+  --surface:        rgba(255,255,255,0.05);
+  --border:         rgba(0,220,255,0.12);
+  --border-light:   rgba(255,255,255,0.06);
+  --accent:         #00dcff;
+  --accent-dark:    #00aac8;
+  --accent-light:   rgba(0,220,255,0.12);
+  --accent-dim:     rgba(0,220,255,0.07);
+  --text:           #d4eef8;
+  --muted:          #6b8a9e;
+  --faint:          #3a5468;
+  --success:        #10d98a;
+  --success-bg:     rgba(16,217,138,0.08);
+  --success-border: rgba(16,217,138,0.25);
+  --error:          #ff3366;
+  --error-bg:       rgba(255,51,102,0.08);
+  --error-border:   rgba(255,51,102,0.25);
+  --info:           #60a5fa;
+  --info-bg:        rgba(96,165,250,0.08);
+  --info-border:    rgba(96,165,250,0.25);
+  --warning:        #fbbf24;
 }
 
 html {
@@ -37,7 +37,7 @@ html {
 }
 
 body {
-  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background-color: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -49,11 +49,11 @@ body {
 
 button {
   cursor: pointer;
-  font-family: 'Montserrat', inherit;
+  font-family: 'Barlow', inherit;
 }
 
 input, select, textarea {
-  font-family: 'Montserrat', inherit;
+  font-family: 'Barlow', inherit;
 }
 
 /* Custom range slider */
@@ -61,7 +61,7 @@ input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
-  background: var(--border);
+  background: rgba(0,220,255,0.15);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -72,24 +72,26 @@ input[type='range']::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
-  background: var(--accent);
+  background: #00dcff;
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(16,44,38,0.3);
-  transition: transform 0.15s;
+  box-shadow: 0 0 6px rgba(0,220,255,0.5);
+  transition: transform 0.15s, box-shadow 0.15s;
 }
 
 input[type='range']::-webkit-slider-thumb:hover {
   transform: scale(1.2);
+  box-shadow: 0 0 12px rgba(0,220,255,0.8);
 }
 
 input[type='range']::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  background: var(--accent);
+  background: #00dcff;
   border-radius: 50%;
   cursor: pointer;
   border: none;
+  box-shadow: 0 0 6px rgba(0,220,255,0.5);
 }
 
 /* Custom scrollbar */
@@ -101,29 +103,34 @@ input[type='range']::-moz-range-thumb {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(0,220,255,0.2);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #C4B89A;
+  background: rgba(0,220,255,0.4);
 }
 
 /* Leaflet overrides */
 .leaflet-container {
   border-radius: 10px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Barlow', sans-serif;
+  background: #0a1628;
 }
 
 .leaflet-popup-content-wrapper {
-  background: #FEFAF3;
-  color: var(--text);
-  border: 1px solid var(--border);
+  background: #0d1a2e;
+  color: #d4eef8;
+  border: 1px solid rgba(0,220,255,0.25);
   border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(16,44,38,0.12);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
 .leaflet-popup-tip {
-  background: #FEFAF3;
+  background: #0d1a2e;
+}
+
+.leaflet-popup-content {
+  color: #d4eef8;
 }
 
 /* Animations */
@@ -151,7 +158,14 @@ input[type='range']::-moz-range-thumb {
   to { transform: rotate(360deg); }
 }
 
-.fade-up    { animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.fade-in    { animation: fadeIn 0.25s ease both; }
-.slide-in   { animation: slideInRight 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.scale-in   { animation: scaleIn 0.2s ease both; }
+@keyframes glow {
+  0%   { box-shadow: 0 0 5px rgba(0,220,255,0.3); }
+  50%  { box-shadow: 0 0 20px rgba(0,220,255,0.6); }
+  100% { box-shadow: 0 0 5px rgba(0,220,255,0.3); }
+}
+
+.fade-up      { animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fade-in      { animation: fadeIn 0.25s ease both; }
+.slide-in     { animation: slideInRight 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.scale-in     { animation: scaleIn 0.2s ease both; }
+.glow-pulse   { animation: glow 2s ease-in-out infinite; }
