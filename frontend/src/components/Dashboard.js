@@ -599,7 +599,12 @@ export default function Dashboard({ token, role, onLogout }) {
                     <div style={{ fontSize: 12, color: C.muted }}>From: {r.start_location}</div>
                     <div style={{ fontSize: 12, color: C.faint }}>{new Date(r.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
-                  {statusBadge(r.status)}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {statusBadge(r.status)}
+                    {r.status === 'pending' && (
+                      <button onClick={() => handleCancelRequest(r.id)} style={{ background: 'none', border: 'none', color: C.errorText, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 6px', fontFamily: 'inherit' }}>Cancel</button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -834,67 +839,108 @@ export default function Dashboard({ token, role, onLogout }) {
   }
 
   function renderMyRides() {
-    const activeRide = myRides.find(r => ['active', 'in_progress'].includes(r.status));
-    const passengers = activeRide ? confirmedPassengers[activeRide.id] : null;
     return (
       <div style={{ maxWidth: 700 }}>
-        <div style={{ ...card, padding: '20px 24px', marginBottom: 24 }}>
-          <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, marginBottom: 14 }}>Your Active Ride</div>
-          {activeRide ? (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: C.accent }} />
-                    <span style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{activeRide.start_location}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 2 }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill={C.faint}><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
-                    <span style={{ fontSize: 14, color: C.muted }}>SCT Campus</span>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{new Date(activeRide.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{activeRide.available_seats} seats left</div>
-                  <div style={{ marginTop: 6 }}>{statusBadge(activeRide.status)}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                {activeRide.status === 'active' && <button onClick={() => handleStartRide(activeRide.id)} style={{ ...btnPrimary, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>Start Trip</button>}
-                {activeRide.status === 'in_progress' && <button onClick={() => handleCompleteRide(activeRide.id)} style={{ ...btnPrimary, flex: 1, background: C.successText }}>Complete Trip</button>}
-              </div>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', color: C.faint, fontSize: 13, padding: '12px 0' }}>No active ride. Post a ride from Offer a Ride.</div>
-          )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>My Rides</div>
+          <button onClick={fetchMyRides} style={{ ...btnOutline, fontSize: 12, padding: '6px 14px' }}>Refresh</button>
         </div>
 
-        <div style={card}>
-          <div style={{ padding: '16px 24px', borderBottom: `1px solid ${C.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700 }}>Confirmed Passengers</div>
-            {activeRide && <button onClick={() => handleTogglePassengers(activeRide.id)} style={{ ...btnOutline, fontSize: 12, padding: '6px 14px' }}>{expandedRideId === activeRide.id ? 'Hide' : 'View'}</button>}
+        {myRides.length === 0 ? (
+          <div style={{ ...card, padding: '48px 32px', textAlign: 'center' }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🚗</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 6 }}>No rides posted yet</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Offer a ride to get started.</div>
+            <button onClick={() => setActivePage('offer')} style={btnPrimary}>Offer a Ride</button>
           </div>
-          <div style={{ padding: '0 24px' }}>
-            {!activeRide && <div style={{ padding: '20px 0', color: C.faint, fontSize: 13 }}>No active ride.</div>}
-            {activeRide && expandedRideId !== activeRide.id && <div style={{ padding: '20px 0', color: C.faint, fontSize: 13 }}>Click "View" to see confirmed passengers.</div>}
-            {activeRide && expandedRideId === activeRide.id && (
-              passengers == null ? <div style={{ padding: '20px 0', color: C.faint, fontSize: 13 }}>Loading…</div> :
-              passengers.length === 0 ? <div style={{ padding: '20px 0', color: C.faint, fontSize: 13 }}>No confirmed passengers yet.</div> :
-              passengers.map((p, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: i < passengers.length - 1 ? `1px solid ${C.borderLight}` : 'none' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: getAvatarColor(p.passenger_name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{getInitials(p.passenger_name)}</div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{p.passenger_name}</div>
-                      <div style={{ fontSize: 12, color: C.muted }}>{p.pickup_location}</div>
+        ) : (
+          myRides.map((ride) => {
+            const isExpanded = expandedRideId === ride.id;
+            const passengers = confirmedPassengers[ride.id];
+            const canViewPassengers = ['active', 'in_progress', 'completed'].includes(ride.status);
+            return (
+              <div key={ride.id} style={{ ...card, marginBottom: 16, overflow: 'hidden' }}>
+                {/* Ride header */}
+                <div style={{ padding: '18px 20px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.accent, flexShrink: 0 }} />
+                        <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{ride.start_location}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 2 }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill={C.faint}><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+                        <span style={{ fontSize: 13, color: C.muted }}>SCT Campus</span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{new Date(ride.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      <div style={{ fontSize: 11, color: C.faint, marginTop: 1 }}>{new Date(ride.departure_time).toLocaleDateString([], { month: 'short', day: 'numeric' })}</div>
+                      <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{ride.available_seats} seats</div>
                     </div>
                   </div>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', border: `2px solid ${C.border}` }} />
+                  <div style={{ marginBottom: 14 }}>{statusBadge(ride.status)}</div>
+
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {ride.status === 'active' && (
+                      <button onClick={() => handleStartRide(ride.id)} style={{ ...btnPrimary, fontSize: 13, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                        Start Trip
+                      </button>
+                    )}
+                    {ride.status === 'in_progress' && (
+                      <button onClick={() => handleCompleteRide(ride.id)} style={{ ...btnPrimary, fontSize: 13, padding: '8px 16px', background: C.successText }}>
+                        Complete Trip
+                      </button>
+                    )}
+                    {canViewPassengers && (
+                      <button onClick={() => handleTogglePassengers(ride.id)} style={{ ...btnOutline, fontSize: 13, padding: '8px 16px' }}>
+                        {isExpanded ? 'Hide Passengers' : 'View Passengers'}
+                      </button>
+                    )}
+                    <button onClick={() => handleDeleteRide(ride.id)} style={{ ...btnOutline, fontSize: 13, padding: '8px 14px', color: C.errorText, borderColor: '#fecaca', marginLeft: 'auto' }}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
+
+                {/* Expanded passenger list */}
+                {isExpanded && (
+                  <div style={{ borderTop: `1px solid ${C.borderLight}`, padding: '0 20px' }}>
+                    <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, padding: '12px 0 8px' }}>Confirmed Passengers</div>
+                    {passengers == null ? (
+                      <div style={{ padding: '12px 0', color: C.faint, fontSize: 13 }}>Loading…</div>
+                    ) : passengers.length === 0 ? (
+                      <div style={{ padding: '12px 0', color: C.faint, fontSize: 13 }}>No confirmed passengers yet.</div>
+                    ) : (
+                      <>
+                        {passengers.map((p, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < passengers.length - 1 ? `1px solid ${C.borderLight}` : 'none' }}>
+                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: C.surface, border: `1.5px solid ${C.border}`, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
+                            <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(p.passenger_name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{getInitials(p.passenger_name)}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.passenger_name}</div>
+                              <div style={{ fontSize: 11, color: C.muted }}>{p.pickup_location}</div>
+                            </div>
+                            {p.pickup_distance_m != null && (
+                              <div style={{ fontSize: 11, color: C.faint, textAlign: 'right', flexShrink: 0 }}>
+                                {p.pickup_distance_m < 1000 ? `${Math.round(p.pickup_distance_m)}m` : `${(p.pickup_distance_m / 1000).toFixed(1)}km`}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <div style={{ fontSize: 11, color: C.faint, padding: '10px 0', borderTop: `1px solid ${C.borderLight}`, marginTop: 4 }}>
+                          Est. detour: ~{(passengers.reduce((sum, p) => sum + (p.pickup_distance_m || 0), 0) * 2 / 1000).toFixed(1)} km total
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
     );
   }

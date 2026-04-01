@@ -201,35 +201,52 @@ router.post('/find', verifyToken, async (req, res) => {
       const routeLength = parseFloat(ride.route_length_m);
 
       // ── FACTOR 1: Detour Cost (40%) ──────────
+      //
+      // True detour = ORS(start → pickup → end) − ORS(start → end).
+      // route_length_m is ST_Length of the ORS-generated polyline, so it
+      // closely matches a fresh ORS(start → end) call and is used as the
+      // baseline — avoiding a second ORS call per candidate.
+      //
+      // Negative extra (ORS found a shortcut through pickup) → 0 detour.
+      // Fallback when ORS fails: haversine from pickup to nearest route
+      // point × 2 (round-trip) × 1.4 (road-vs-straight-line factor).
       let detourScore = null;
       let detourExtraMeters = null;
       let detourPercent = null;
 
+      const startCoord  = [parseFloat(ride.start_lng), parseFloat(ride.start_lat)];
+      const endCoord    = [parseFloat(ride.end_lng),   parseFloat(ride.end_lat)];
+      const pickupCoord = [pickup_lng, pickup_lat];
+
       try {
-        const startCoord  = [parseFloat(ride.start_lng), parseFloat(ride.start_lat)];
-        const endCoord    = [parseFloat(ride.end_lng),   parseFloat(ride.end_lat)];
-        const pickupCoord = [pickup_lng, pickup_lat];
+        const withPickupDist = await getORSRouteDistance([startCoord, pickupCoord, endCoord]);
+        await sleep(250);
 
-        const detourDistance = await getORSRouteDistance([startCoord, pickupCoord, endCoord]);
-
-        if (detourDistance !== null && routeLength > 0) {
-          const extraDistance = Math.max(0, detourDistance - routeLength);
-          detourExtraMeters = Math.round(extraDistance);
-          const detourRatio = extraDistance / routeLength;
+        if (withPickupDist !== null && routeLength > 0) {
+          const extra = Math.max(0, withPickupDist - routeLength);
+          detourExtraMeters = Math.round(extra);
+          const detourRatio = extra / routeLength;
           detourPercent = Math.round(detourRatio * 100);
           detourScore = Math.max(0, Math.min(1, 1 - detourRatio * 5));
           confidenceFactors.push('detour');
+          console.log(`[detour] ride ${ride.id}: withPickup=${Math.round(withPickupDist)}m baseline=${Math.round(routeLength)}m extra=${detourExtraMeters}m score=${Math.round(detourScore * 100)}`);
+        } else {
+          console.log(`[detour] ride ${ride.id}: ORS returned null or routeLength=0, falling back`);
         }
-
+      } catch (err) {
+        console.error(`[detour] ride ${ride.id}: ORS error`, err.message);
         await sleep(250);
-      } catch (err) { /* handled by fallback below */ }
+      }
 
       if (detourScore === null) {
-        const estimatedDetour = pickupDist * 2;
+        // Fallback: distance from pickup to nearest route point × 2 (round-trip) × 1.4 (road factor)
+        // pickupDist is PostGIS ST_Distance(route_polyline::geography, pickup) — always accurate.
+        const estimatedDetour = pickupDist * 2 * 1.4;
         const estimatedRatio = routeLength > 0 ? estimatedDetour / routeLength : 1;
         detourScore = Math.max(0, Math.min(1, 1 - estimatedRatio * 5));
         detourExtraMeters = Math.round(estimatedDetour);
         detourPercent = Math.round(estimatedRatio * 100);
+        console.log(`[detour] ride ${ride.id}: fallback pickupDist=${Math.round(pickupDist)}m extra=${detourExtraMeters}m score=${Math.round(detourScore * 100)}`);
       }
 
       // ── FACTOR 2: Pickup Position on Route (25%) ──
@@ -290,9 +307,9 @@ router.post('/find', verifyToken, async (req, res) => {
       else                        timeLabel = `${Math.round(timeDiffMin / 60)}h+ apart`;
 
       let detourLabel;
-      if (!detourExtraMeters || detourExtraMeters === 0) detourLabel = 'On route';
-      else if (detourExtraMeters < 500)                  detourLabel = 'Minimal detour';
-      else                                               detourLabel = `+${(detourExtraMeters / 1000).toFixed(1)} km detour`;
+      if (!detourExtraMeters || detourExtraMeters < 150)  detourLabel = 'On route';
+      else if (detourExtraMeters < 1000)                  detourLabel = 'Minimal detour';
+      else                                                detourLabel = `+${(detourExtraMeters / 1000).toFixed(1)} km detour`;
 
       // Distance label for UI (shows how far the route is from pickup)
       let distanceLabel;
