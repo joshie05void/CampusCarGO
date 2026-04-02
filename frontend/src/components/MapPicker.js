@@ -31,7 +31,7 @@ export default function MapPicker({ label, onLocationSelect }) {
   const debounceTimer = useRef(null);
   const wrapperRef    = useRef(null);
 
-  const SCT = { lat: 8.5241, lng: 76.9366 };
+  const SCT = { lat: 8.4682, lng: 76.9829 };
 
   useEffect(() => {
     const handler = (e) => {

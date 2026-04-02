@@ -6,6 +6,7 @@ const cron = require('node-cron');
 const pool = require('./config/db');
 const runMigrations = require('./db/migrate');
 const { init: initSocket } = require('./socket');
+const h3cache = require('./h3cache');
 
 const authRoutes = require('./routes/auth');
 
@@ -30,8 +31,10 @@ app.get('/', (req, res) => {
   res.send('CampusCarGO backend is running');
 });
 
-// Run DB migrations on startup
-runMigrations();
+// Run DB migrations on startup, then warm the H3 spatial cache
+runMigrations().then(() => {
+  h3cache.warmCache(pool).catch(err => console.error('[H3] Warm cache error:', err.message));
+});
 
 // ── Cron: every 10 minutes ───────────────────────────────────────────────────
 // 1. Expire rides whose departure was more than 2 hours ago

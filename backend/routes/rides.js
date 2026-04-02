@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const h3cache = require('../h3cache');
 require('dotenv').config();
 
 const verifyToken = (req, res, next) => {
@@ -48,6 +49,13 @@ router.post('/post', verifyToken, async (req, res) => {
       'INSERT INTO rides (driver_id, start_location, end_location, departure_time, available_seats, route_polyline) VALUES ($1, $2, $3, $4, $5, ST_GeomFromText($6, 4326)) RETURNING *',
       [req.user.id, start_location, end_location, departure_time, available_seats, linestring]
     );
+    // Index the new ride in the H3 spatial cache
+    try {
+      h3cache.indexRide(result.rows[0].id, coordinates);
+    } catch (h3err) {
+      console.error('[H3] Index error on post:', h3err.message);
+    }
+
     res.json({ message: 'Ride posted successfully', ride: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -326,6 +334,8 @@ router.post('/complete/:id', verifyToken, async (req, res) => {
     const check = await pool.query(`SELECT id FROM rides WHERE id = $1 AND driver_id = $2`, [req.params.id, req.user.id]);
     if (check.rows.length === 0) return res.status(404).json({ error: 'Ride not found.' });
     await pool.query(`UPDATE rides SET status = 'completed' WHERE id = $1`, [req.params.id]);
+    // Remove from H3 spatial cache
+    h3cache.removeRide(parseInt(req.params.id));
     const passengers = await pool.query(
       `SELECT passenger_id FROM ride_requests WHERE ride_id = $1 AND status = 'accepted'`,
       [req.params.id]
@@ -446,6 +456,8 @@ router.delete('/delete/:id', verifyToken, async (req, res) => {
     if (check.rows.length === 0) return res.status(404).json({ error: 'Ride not found or you do not own this ride.' });
     await pool.query(`DELETE FROM ride_requests WHERE ride_id = $1`, [req.params.id]);
     await pool.query(`DELETE FROM rides WHERE id = $1`, [req.params.id]);
+    // Remove from H3 spatial cache
+    h3cache.removeRide(parseInt(req.params.id));
     res.json({ message: 'Ride deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
