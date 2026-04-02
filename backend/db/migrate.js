@@ -66,6 +66,51 @@ async function runMigrations() {
       )
     `);
 
+    // ── Matching Engine v2.0 columns ──────────────────────────────
+    await pool.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='ride_requests' AND column_name='meeting_point_lat'
+        ) THEN
+          ALTER TABLE ride_requests ADD COLUMN meeting_point_lat NUMERIC(9,6);
+        END IF;
+      END $$
+    `);
+
+    await pool.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='ride_requests' AND column_name='meeting_point_lng'
+        ) THEN
+          ALTER TABLE ride_requests ADD COLUMN meeting_point_lng NUMERIC(9,6);
+        END IF;
+      END $$
+    `);
+
+    await pool.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='ride_requests' AND column_name='walk_distance_m'
+        ) THEN
+          ALTER TABLE ride_requests ADD COLUMN walk_distance_m INTEGER;
+        END IF;
+      END $$
+    `);
+
+    await pool.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='ride_requests' AND column_name='cost_seconds'
+        ) THEN
+          ALTER TABLE ride_requests ADD COLUMN cost_seconds INTEGER;
+        END IF;
+      END $$
+    `);
+
     console.log('Migrations applied.');
   } catch (err) {
     console.error('Migration error:', err.message);

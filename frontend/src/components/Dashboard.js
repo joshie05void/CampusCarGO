@@ -38,7 +38,7 @@ function FitBounds({ latLngs }) {
 
 function RoutePreviewMap({ coordinates, pickupLat, pickupLng }) {
   const latLngs = coordinates.map(c => [c[1], c[0]]);
-  const mid = latLngs[Math.floor(latLngs.length / 2)] || [8.5241, 76.9366];
+  const mid = latLngs[Math.floor(latLngs.length / 2)] || [8.4682, 76.9829];
   return (
     <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12, border: `1px solid ${C.border}` }}>
       <MapContainer center={mid} zoom={13} style={{ height: '200px', width: '100%' }}
@@ -108,7 +108,7 @@ export default function Dashboard({ token, role, onLogout }) {
   const socketRef = useRef(null);
 
   const myUserId = (() => { try { return JSON.parse(atob(token.split('.')[1])).id; } catch { return null; } })();
-  const SCT = { lat: 8.5241, lng: 76.9366, name: 'SCT Pappanamcode' };
+  const SCT = { lat: 8.4682, lng: 76.9829, name: 'SCT Pappanamcode' };
   const departureTime = departureDate && departureTimeStr ? `${departureDate}T${departureTimeStr}` : '';
 
   const avatarColors = ['#00dcff', '#7c3aed', '#10d98a', '#f97316', '#ff3366', '#fbbf24'];
@@ -913,10 +913,10 @@ export default function Dashboard({ token, role, onLogout }) {
                   zoomControl={false}
                 >
                   <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                  <FitBounds latLngs={[[pickupLocation.lat, pickupLocation.lng], [8.5241, 76.9366]]} />
+                  <FitBounds latLngs={[[pickupLocation.lat, pickupLocation.lng], [8.4682, 76.9829]]} />
                   <CircleMarker center={[pickupLocation.lat, pickupLocation.lng]} radius={9}
                     color="#06080f" fillColor={C.accent} fillOpacity={1} weight={2} />
-                  <CircleMarker center={[8.5241, 76.9366]} radius={9}
+                  <CircleMarker center={[8.4682, 76.9829]} radius={9}
                     color="#06080f" fillColor={C.successText} fillOpacity={1} weight={2} />
                 </MapContainer>
               </div>
