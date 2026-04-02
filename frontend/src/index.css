@@ -7,29 +7,29 @@
 }
 
 :root {
-  --bg:             #06080f;
-  --sidebar:        #090e1a;
-  --card:           rgba(255,255,255,0.03);
-  --surface:        rgba(255,255,255,0.05);
-  --border:         rgba(0,220,255,0.12);
-  --border-light:   rgba(255,255,255,0.06);
-  --accent:         #00dcff;
-  --accent-dark:    #00aac8;
-  --accent-light:   rgba(0,220,255,0.12);
-  --accent-dim:     rgba(0,220,255,0.07);
-  --text:           #d4eef8;
-  --muted:          #6b8a9e;
-  --faint:          #3a5468;
-  --success:        #10d98a;
-  --success-bg:     rgba(16,217,138,0.08);
-  --success-border: rgba(16,217,138,0.25);
-  --error:          #ff3366;
-  --error-bg:       rgba(255,51,102,0.08);
-  --error-border:   rgba(255,51,102,0.25);
-  --info:           #60a5fa;
-  --info-bg:        rgba(96,165,250,0.08);
-  --info-border:    rgba(96,165,250,0.25);
-  --warning:        #fbbf24;
+  --bg:             #F7E7CE;
+  --sidebar:        #F2DDBC;
+  --card:           #FEFAF3;
+  --surface:        #F2DDBC;
+  --border:         #DDD0B3;
+  --border-light:   #EAE0CC;
+  --accent:         #102C26;
+  --accent-dark:    #0a1e1a;
+  --accent-light:   rgba(16,44,38,0.10);
+  --accent-dim:     rgba(16,44,38,0.05);
+  --text:           #102C26;
+  --muted:          #4A6A5E;
+  --faint:          #8AAA9E;
+  --success:        #1a6644;
+  --success-bg:     rgba(26,102,68,0.08);
+  --success-border: rgba(26,102,68,0.25);
+  --error:          #a63020;
+  --error-bg:       rgba(166,48,32,0.08);
+  --error-border:   rgba(166,48,32,0.25);
+  --info:           #2a5a6a;
+  --info-bg:        rgba(42,90,106,0.08);
+  --info-border:    rgba(42,90,106,0.25);
+  --warning:        #8a6020;
 }
 
 html {
@@ -61,7 +61,7 @@ input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
-  background: rgba(0,220,255,0.15);
+  background: #DDD0B3;
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -72,26 +72,26 @@ input[type='range']::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
-  background: #00dcff;
+  background: #102C26;
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 0 6px rgba(0,220,255,0.5);
+  box-shadow: 0 0 6px rgba(16,44,38,0.4);
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
 input[type='range']::-webkit-slider-thumb:hover {
   transform: scale(1.2);
-  box-shadow: 0 0 12px rgba(0,220,255,0.8);
+  box-shadow: 0 0 12px rgba(16,44,38,0.6);
 }
 
 input[type='range']::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  background: #00dcff;
+  background: #102C26;
   border-radius: 50%;
   cursor: pointer;
   border: none;
-  box-shadow: 0 0 6px rgba(0,220,255,0.5);
+  box-shadow: 0 0 6px rgba(16,44,38,0.4);
 }
 
 /* Custom scrollbar */
@@ -103,34 +103,34 @@ input[type='range']::-moz-range-thumb {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0,220,255,0.2);
+  background: rgba(16,44,38,0.2);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,220,255,0.4);
+  background: rgba(16,44,38,0.4);
 }
 
 /* Leaflet overrides */
 .leaflet-container {
   border-radius: 10px;
   font-family: 'Barlow', sans-serif;
-  background: #0a1628;
+  background: #F2DDBC;
 }
 
 .leaflet-popup-content-wrapper {
-  background: #0d1a2e;
-  color: #d4eef8;
-  border: 1px solid rgba(0,220,255,0.25);
+  background: #FEFAF3;
+  color: #102C26;
+  border: 1px solid #DDD0B3;
   border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(16,44,38,0.15);
 }
 
 .leaflet-popup-tip {
-  background: #0d1a2e;
+  background: #FEFAF3;
 }
 
 .leaflet-popup-content {
-  color: #d4eef8;
+  color: #102C26;
 }
 
 /* Animations */
@@ -159,9 +159,9 @@ input[type='range']::-moz-range-thumb {
 }
 
 @keyframes glow {
-  0%   { box-shadow: 0 0 5px rgba(0,220,255,0.3); }
-  50%  { box-shadow: 0 0 20px rgba(0,220,255,0.6); }
-  100% { box-shadow: 0 0 5px rgba(0,220,255,0.3); }
+  0%   { box-shadow: 0 0 5px rgba(16,44,38,0.2); }
+  50%  { box-shadow: 0 0 20px rgba(16,44,38,0.4); }
+  100% { box-shadow: 0 0 5px rgba(16,44,38,0.2); }
 }
 
 .fade-up      { animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
