@@ -70,6 +70,9 @@ export default function Dashboard({ token, role, onLogout }) {
   const [activePage, setActivePage] = useState('dashboard');
   const [userName, setUserName] = useState('');
   const [userRegNumber, setUserRegNumber] = useState('');
+  const [totalCo2Saved, setTotalCo2Saved] = useState(0);
+  const [totalDistanceKm, setTotalDistanceKm] = useState(0);
+  const [platformStats, setPlatformStats] = useState(null);
 
   const [pickupLocation, setPickupLocation] = useState(null);
   const [departureDate, setDepartureDate] = useState('');
@@ -107,6 +110,12 @@ export default function Dashboard({ token, role, onLogout }) {
   const chatEndRef = useRef(null);
   const socketRef = useRef(null);
 
+  // Live Location States
+  const [liveLocations, setLiveLocations] = useState({}); // Stores incoming GPS from socket
+  const [viewingLiveUser, setViewingLiveUser] = useState(null); // { id, name, role }
+  const watchId = useRef(null);
+
+
   const myUserId = (() => { try { return JSON.parse(atob(token.split('.')[1])).id; } catch { return null; } })();
   const SCT = { lat: 8.4682, lng: 76.9829, name: 'SCT Pappanamcode' };
   const departureTime = departureDate && departureTimeStr ? `${departureDate}T${departureTimeStr}` : '';
@@ -125,11 +134,17 @@ export default function Dashboard({ token, role, onLogout }) {
   // ── Effects ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     axios.get('http://localhost:5000/api/auth/me', { headers: { Authorization: token } })
-      .then(res => { setUserName(res.data.name); setUserRegNumber(res.data.reg_number); })
+      .then(res => { 
+        setUserName(res.data.name); 
+        setUserRegNumber(res.data.reg_number);
+        setTotalCo2Saved(res.data.total_co2_saved || 0);
+        setTotalDistanceKm(res.data.total_distance_km || 0);
+      })
       .catch(console.error);
     if (role === 'driver') { fetchRequests(); fetchMyRides(); fetchAnalytics(); }
     if (role === 'passenger') fetchMyStatus();
     fetchNotifications(); fetchPendingRatings(); fetchHistory();
+    axios.get('http://localhost:5000/api/stats').then(r => setPlatformStats(r.data)).catch(() => {});
     const notifInterval = setInterval(fetchNotifications, 30000);
     const rideInterval = setInterval(() => {
       if (role === 'driver') { fetchRequests(); fetchMyRides(); }
@@ -143,6 +158,12 @@ export default function Dashboard({ token, role, onLogout }) {
     const socket = socketIO('http://localhost:5000', { auth: { token } });
     socketRef.current = socket;
     socket.on('new_message', msg => setChatMessages(prev => [...prev, msg]));
+    socket.on('driver:location_update', data => {
+      setLiveLocations(prev => ({ ...prev, driver: { lat: data.lat, lng: data.lng, timestamp: Date.now() } }));
+    });
+    socket.on('passenger:location_update', data => {
+      setLiveLocations(prev => ({ ...prev, [data.passengerId]: { lat: data.lat, lng: data.lng, timestamp: Date.now() } }));
+    });
     return () => socket.disconnect();
   }, []);
 
@@ -155,6 +176,36 @@ export default function Dashboard({ token, role, onLogout }) {
   useEffect(() => {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  useEffect(() => {
+    // Determine active ride ID to broadcast location for
+    let activeRideId = null;
+    if (role === 'driver') {
+      const active = myRides.find(r => ['active', 'in_progress'].includes(r.status));
+      if (active) activeRideId = active.id;
+    } else {
+      const accepted = myStatus.find(r => r.status === 'accepted' && !['completed', 'expired'].includes(r.ride_status));
+      if (accepted) activeRideId = accepted.ride_id;
+    }
+
+    if (activeRideId && navigator.geolocation) {
+      // Ensure we joined the ride socket room
+      socketRef.current?.emit('join_ride', activeRideId);
+
+      watchId.current = navigator.geolocation.watchPosition((pos) => {
+        const { latitude, longitude } = pos.coords;
+        if (socketRef.current) {
+          socketRef.current.emit(role === 'driver' ? 'driver:location' : 'passenger:location', {
+            lat: latitude, lng: longitude, rideId: activeRideId
+          });
+        }
+      }, err => console.warn('Geolocation error:', err), { enableHighAccuracy: true });
+    }
+
+    return () => {
+      if (watchId.current) navigator.geolocation.clearWatch(watchId.current);
+    };
+  }, [myRides, myStatus, role]);
 
   // ── Fetchers ─────────────────────────────────────────────────────────────────
   const fetchRequests = async () => {
@@ -252,6 +303,13 @@ export default function Dashboard({ token, role, onLogout }) {
     try {
       await axios.post(`http://localhost:5000/api/rides/cancel-request/${requestId}`, {}, { headers: { Authorization: token } });
       fetchMyStatus(); showToast('Ride cancelled.', 'success');
+    } catch(err) { showToast(err.response?.data?.error || 'Error', 'error'); }
+  };
+  const handleDeleteRequest = async (requestId) => {
+    if (!window.confirm('Delete this request from history?')) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/rides/request/${requestId}`, { headers: { Authorization: token } });
+      fetchMyStatus(); showToast('Request deleted.', 'success');
     } catch(err) { showToast(err.response?.data?.error || 'Error', 'error'); }
   };
   const handleStartRide = async (rideId) => {
@@ -543,22 +601,58 @@ export default function Dashboard({ token, role, onLogout }) {
           animation: 'fadeUp 0.3s ease both', pointerEvents: 'none', maxWidth: 380, textAlign: 'center',
         }}>{toast.msg}</div>
       )}
+
+      {/* Live Location Modal */}
+      {viewingLiveUser && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, width: 440, maxWidth: '90vw', padding: 24, boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Live Location</div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Tracking {viewingLiveUser.name}</div>
+              </div>
+              <button onClick={() => setViewingLiveUser(null)} style={{ background: 'none', border: 'none', color: C.faint, cursor: 'pointer', fontSize: 18 }}>✕</button>
+            </div>
+
+            <div style={{ height: 280, borderRadius: 12, overflow: 'hidden', border: `1px solid ${C.border}`, background: C.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              {liveLocations[viewingLiveUser.id] ? (
+                <MapContainer center={[liveLocations[viewingLiveUser.id].lat, liveLocations[viewingLiveUser.id].lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false} attributionControl={false}>
+                  <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                  <CircleMarker center={[liveLocations[viewingLiveUser.id].lat, liveLocations[viewingLiveUser.id].lng]} radius={8} color="#06080f" fillColor={viewingLiveUser.id === 'driver' ? '#00dcff' : '#f97316'} fillOpacity={1} weight={2} />
+                </MapContainer>
+              ) : (
+                <div style={{ color: C.faint, fontSize: 13, textAlign: 'center' }}>
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', background: C.accent, margin: '0 auto 12px', animation: 'pulse 1.5s infinite' }} />
+                  Waiting for GPS signal...<br/><span style={{ fontSize: 11, opacity: 0.7 }}>Ensure the user has the app open.</span>
+                </div>
+              )}
+            </div>
+            
+            {liveLocations[viewingLiveUser.id] && (
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 12, textAlign: 'center' }}>
+                Last updated: {Math.round((Date.now() - liveLocations[viewingLiveUser.id].timestamp)/1000)}s ago
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 
   // ═══ Page Renderers ══════════════════════════════════════════════════════════
 
   function renderDashboard() {
+    let mainContent = null;
     if (role === 'driver') {
       const activeRide = myRides.find(r => ['active', 'in_progress'].includes(r.status));
-      return (
+      mainContent = (
         <div style={{ maxWidth: 860 }}>
           {analytics && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 28 }}>
               {[
                 { label: 'Total Rides', value: analytics.total_rides ?? 0 },
                 { label: 'Passengers', value: analytics.total_passengers ?? 0 },
-                { label: 'Match Score', value: analytics.avg_score != null ? `${Math.round(analytics.avg_score)}%` : '—' },
+                { label: 'CO2 Saved', value: analytics.total_co2_saved != null ? `${Math.round(analytics.total_co2_saved)}g` : '0g' },
                 { label: 'Rating', value: analytics.avg_rating != null ? Number(analytics.avg_rating).toFixed(1) : '—', stars: analytics.avg_rating },
               ].map((s, i) => (
                 <div key={i} style={{ ...card, overflow: 'hidden' }}>
@@ -633,39 +727,134 @@ export default function Dashboard({ token, role, onLogout }) {
           </div>
         </div>
       );
-    }
+    } else {
 
     // Passenger dashboard
     const acceptedRide = myStatus.find(r => r.status === 'accepted' && !['completed', 'expired'].includes(r.ride_status));
-    return (
+    mainContent = (
       <div style={{ maxWidth: 700 }}>
-        {acceptedRide && (
-          <div style={{ ...card, padding: '20px 24px', marginBottom: 24, borderLeft: `4px solid ${C.successText}` }}>
-            <div style={{ fontSize: 11, color: C.successText, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, marginBottom: 12 }}>Ride Confirmed</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>{acceptedRide.driver_name}</div>
-                <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>From {acceptedRide.start_location}</div>
-                {acceptedRide.driver_avg_rating && <div style={{ marginTop: 4, fontSize: 13 }}>{renderStars(acceptedRide.driver_avg_rating)} <span style={{ fontSize: 12, color: C.faint }}>{Number(acceptedRide.driver_avg_rating).toFixed(1)}</span></div>}
+        {acceptedRide && (() => {
+          // ETA calculation from live driver GPS
+          const driverLoc = liveLocations['driver'];
+          let etaMin = null;
+          if (driverLoc && acceptedRide.pickup_lat && acceptedRide.pickup_lng) {
+            const R = 6371000;
+            const dLat = (acceptedRide.pickup_lat - driverLoc.lat) * Math.PI / 180;
+            const dLon = (acceptedRide.pickup_lng - driverLoc.lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(driverLoc.lat*Math.PI/180)*Math.cos(acceptedRide.pickup_lat*Math.PI/180)*Math.sin(dLon/2)**2;
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            etaMin = Math.max(1, Math.round(dist / 5.0 / 60)); // 5 m/s ~ 18 km/h urban
+          }
+          // Fallback: time until departure
+          const depMs = new Date(acceptedRide.departure_time).getTime();
+          const nowMs = Date.now();
+          const timeUntilDep = Math.max(0, Math.round((depMs - nowMs) / 60000));
+          const displayEta = etaMin !== null ? etaMin : timeUntilDep;
+
+          return (
+            <div style={{ ...card, overflow: 'hidden', marginBottom: 24 }}>
+              {/* Live Map Section */}
+              <div style={{ height: 220, position: 'relative', background: C.surface }}>
+                {driverLoc ? (
+                  <MapContainer center={[driverLoc.lat, driverLoc.lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false} attributionControl={false}>
+                    <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                    <CircleMarker center={[driverLoc.lat, driverLoc.lng]} radius={9}
+                      color="#06080f" fillColor="#00dcff" fillOpacity={1} weight={2} />
+                    {acceptedRide.pickup_lat && acceptedRide.pickup_lng && (
+                      <CircleMarker center={[acceptedRide.pickup_lat, acceptedRide.pickup_lng]} radius={7}
+                        color="#06080f" fillColor="#10d98a" fillOpacity={1} weight={2} />
+                    )}
+                  </MapContainer>
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.faint, gap: 8 }}>
+                    <div style={{ width: 14, height: 14, borderRadius: '50%', background: C.accent, animation: 'glow 1.5s ease-in-out infinite' }} />
+                    <span style={{ fontSize: 13 }}>Waiting for driver's GPS…</span>
+                  </div>
+                )}
+                {/* ETA Overlay */}
+                <div style={{
+                  position: 'absolute', top: 14, left: 14, zIndex: 400,
+                  background: 'rgba(254,250,243,0.92)', backdropFilter: 'blur(8px)',
+                  borderRadius: 14, padding: '10px 18px',
+                  border: `1px solid ${C.border}`, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                }}>
+                  <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700 }}>
+                    {driverLoc ? 'Driver ETA' : 'Departs in'}
+                  </div>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: C.accent, fontFamily: "'Orbitron', sans-serif", lineHeight: 1.1 }}>
+                    {displayEta}<span style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginLeft: 4 }}>min</span>
+                  </div>
+                </div>
+                {/* Status badge overlay */}
+                <div style={{
+                  position: 'absolute', top: 14, right: 14, zIndex: 400,
+                  background: 'rgba(26,102,68,0.12)', border: '1px solid rgba(26,102,68,0.3)',
+                  borderRadius: 20, padding: '5px 14px', fontSize: 11, fontWeight: 700,
+                  color: C.successText, textTransform: 'uppercase', letterSpacing: '1px',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.successText, animation: 'glow 2s ease-in-out infinite' }} />
+                  Confirmed
+                </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{new Date(acceptedRide.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                <div style={{ fontSize: 12, color: C.successText, marginTop: 2 }}>{relativeTime(acceptedRide.departure_time)}</div>
+
+              {/* Driver Info + Actions */}
+              <div style={{ padding: '20px 24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+                  <div style={{ width: 52, height: 52, borderRadius: '50%', background: getAvatarColor(acceptedRide.driver_name), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, border: `3px solid ${C.border}`, flexShrink: 0 }}>
+                    {getInitials(acceptedRide.driver_name)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>{acceptedRide.driver_name}</div>
+                    {acceptedRide.driver_avg_rating && (
+                      <div style={{ marginTop: 2, fontSize: 13 }}>
+                        {renderStars(acceptedRide.driver_avg_rating)}
+                        <span style={{ fontSize: 12, color: C.faint, marginLeft: 6 }}>{Number(acceptedRide.driver_avg_rating).toFixed(1)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: C.text, fontFamily: "'Orbitron', sans-serif" }}>
+                      {new Date(acceptedRide.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div style={{ fontSize: 12, color: C.successText, marginTop: 2 }}>{relativeTime(acceptedRide.departure_time)}</div>
+                  </div>
+                </div>
+
+                {/* Route Info */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+                  <div style={{ background: C.surface, borderRadius: 10, padding: '12px 14px', border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 }}>Pickup</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{acceptedRide.pickup_location}</div>
+                  </div>
+                  <div style={{ background: C.surface, borderRadius: 10, padding: '12px 14px', border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 }}>Drop-off</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>SCT Campus</div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                  <button onClick={() => { setChatRideId(acceptedRide.ride_id); setActivePage('messages'); }}
+                    style={{ ...btnPrimary, background: 'linear-gradient(135deg, #10d98a, #0aaa66)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Chat
+                  </button>
+                  <button onClick={() => setViewingLiveUser({ id: 'driver', name: acceptedRide.driver_name })}
+                    style={{ ...btnOutline, borderColor: C.accent, color: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    Track
+                  </button>
+                  <button onClick={() => handleCancelRequest(acceptedRide.id)}
+                    style={{ ...btnOutline, color: C.errorText, borderColor: C.errorBorder, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '10px 12px', border: `1px solid rgba(0,220,255,0.1)` }}>
-                <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 }}>Pickup</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{acceptedRide.pickup_location}</div>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '10px 12px', border: `1px solid rgba(0,220,255,0.1)` }}>
-                <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 3 }}>Drop-off</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>SCT Campus</div>
-              </div>
-            </div>
-            <button onClick={() => handleCancelRequest(acceptedRide.id)} style={{ ...btnOutline, width: '100%', color: C.errorText, borderColor: C.errorBorder, textAlign: 'center' }}>Cancel Ride</button>
-          </div>
-        )}
+          );
+        })()}
 
         {myStatus.length > 0 && (
           <div style={card}>
@@ -683,6 +872,11 @@ export default function Dashboard({ token, role, onLogout }) {
                     {r.status === 'pending' && (
                       <button onClick={() => handleCancelRequest(r.id)} style={{ background: 'none', border: 'none', color: C.errorText, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 6px', fontFamily: 'inherit' }}>Cancel</button>
                     )}
+                    {(!['accepted', 'pending'].includes(r.status) || (r.status === 'accepted' && ['completed', 'expired'].includes(r.ride_status))) && (
+                      <button onClick={() => handleDeleteRequest(r.id)} style={{ background: 'none', border: 'none', color: C.errorText, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 6px', fontFamily: 'inherit', opacity: 0.8 }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                        onMouseLeave={e => e.currentTarget.style.opacity = 0.8}>Delete</button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -698,6 +892,68 @@ export default function Dashboard({ token, role, onLogout }) {
             <button onClick={() => setActivePage('find')} style={btnPrimary}>Find a Ride</button>
           </div>
         )}
+      </div>
+    );
+    }
+
+    return (
+      <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 300 }}>
+          {mainContent}
+        </div>
+        
+        <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 24 }}>
+          {platformStats && (
+            <div style={{ ...card, padding: '24px', marginBottom: 20 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 16 }}>Eco Impact</div>
+              <div style={{ fontSize: 32, fontWeight: 800, color: C.accent, fontFamily: "'Orbitron', sans-serif" }}>{Math.round(platformStats.total_co2_saved_g || 0)}g</div>
+              <div style={{ fontSize: 13, color: C.faint, textTransform: 'uppercase', marginBottom: 20 }}>CO2 Saved</div>
+
+              <div style={{ background: 'rgba(16,217,138,0.05)', border: '1px solid rgba(16,217,138,0.2)', borderRadius: 12, padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 24 }}>🌳</div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.successText }}>Equivalent to</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>planting <strong>{platformStats.trees_equivalent || "0.00"}</strong> trees!</div>
+                </div>
+              </div>
+              
+              <div style={{ marginTop: 24 }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: C.text, fontFamily: "'Orbitron', sans-serif" }}>{Number(platformStats.total_distance_km || 0).toFixed(1)} km</div>
+                <div style={{ fontSize: 13, color: C.faint, textTransform: 'uppercase' }}>Shared Distance</div>
+              </div>
+            </div>
+          )}
+
+          {/* Platform Stats Widget */}
+          {platformStats && (
+            <div style={{ ...card, padding: '24px' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                Campus Stats
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[
+                  { value: platformStats.total_users, label: 'Users', icon: '👥' },
+                  { value: platformStats.completed_rides, label: 'Rides', icon: '🚗' },
+                  { value: platformStats.active_rides, label: 'Active Now', icon: '🟢' },
+                  { value: `${(platformStats.total_co2_saved_g / 1000).toFixed(1)}kg`, label: 'CO₂ Saved', icon: '🌍' },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: C.surface, borderRadius: 10, padding: '12px', border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 16, marginBottom: 2 }}>{s.icon}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: C.text, fontFamily: "'Orbitron', sans-serif" }}>{s.value}</div>
+                    <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              {platformStats.avg_rating && (
+                <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: '#fbbf24', fontSize: 14 }}>{'★'.repeat(Math.round(platformStats.avg_rating))}</span>
+                  <span style={{ fontSize: 12, color: C.muted }}>{platformStats.avg_rating} avg from {platformStats.total_ratings} ratings</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -1043,7 +1299,13 @@ export default function Dashboard({ token, role, onLogout }) {
                             <div style={{ width: 28, height: 28, borderRadius: '50%', background: C.surface, border: `1.5px solid ${C.border}`, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
                             <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(p.passenger_name), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{getInitials(p.passenger_name)}</div>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.passenger_name}</div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.passenger_name}</div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button onClick={() => { setChatRideId(ride.id); setActivePage('messages'); }} style={{ background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none' }}>Chat</button>
+                                  <button onClick={() => setViewingLiveUser({ id: p.passenger_id, name: p.passenger_name })} style={{ background: 'none', border: 'none', color: '#f97316', fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none' }}>Live</button>
+                                </div>
+                              </div>
                               <div style={{ fontSize: 11, color: C.muted }}>{p.pickup_location}</div>
                             </div>
                             {p.pickup_distance_m != null && (

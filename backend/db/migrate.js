@@ -111,6 +111,19 @@ async function runMigrations() {
       END $$
     `);
 
+    // ── Carbon Tracker Migration ──────────────────────────────────
+    await pool.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS total_co2_saved NUMERIC(10,2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_distance_km NUMERIC(10,2) DEFAULT 0;
+    `);
+
+    await pool.query(`
+      ALTER TABLE rides 
+      ADD COLUMN IF NOT EXISTS distance_km NUMERIC(10,2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS co2_saved_g NUMERIC(10,2) DEFAULT 0;
+    `);
+
     console.log('Migrations applied.');
   } catch (err) {
     console.error('Migration error:', err.message);

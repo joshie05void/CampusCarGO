@@ -26,6 +26,8 @@ const notifRoutes = require('./routes/notifications');
 app.use('/api/notifications', notifRoutes);
 const chatRoutes = require('./routes/chat');
 app.use('/api/chat', chatRoutes);
+const statsRoutes = require('./routes/stats');
+app.use('/api/stats', statsRoutes);
 
 app.get('/', (req, res) => {
   res.send('CampusCarGO backend is running');

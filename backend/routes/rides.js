@@ -127,9 +127,12 @@ router.get('/analytics', verifyToken, async (req, res) => {
          COUNT(DISTINCT r.id) FILTER (WHERE r.status = 'completed') as total_rides,
          COUNT(rr.id) FILTER (WHERE rr.status = 'accepted' AND r.status = 'completed') as total_passengers,
          ROUND(AVG(rr.score) FILTER (WHERE rr.status = 'accepted' AND r.status = 'completed')::numeric, 1) as avg_score,
-         ROUND((SELECT AVG(stars) FROM ratings WHERE ratee_id = $1)::numeric, 1) as avg_rating
+         ROUND((SELECT AVG(stars) FROM ratings WHERE ratee_id = $1)::numeric, 1) as avg_rating,
+         MAX(u.total_co2_saved) as total_co2_saved,
+         MAX(u.total_distance_km) as total_distance_km
        FROM rides r
        LEFT JOIN ride_requests rr ON rr.ride_id = r.id
+       JOIN users u ON u.id = r.driver_id
        WHERE r.driver_id = $1`,
       [req.user.id]
     );
@@ -248,9 +251,12 @@ router.post('/request', verifyToken, async (req, res) => {
     if (ride.rows[0].status !== 'active') return res.status(400).json({ error: 'This ride is no longer active.' });
     if (ride.rows[0].available_seats <= 0) return res.status(400).json({ error: 'No seats available on this ride.' });
 
-    // Feature 7: block if passenger already has any pending or accepted request
+    // Feature 7: block if passenger already has any pending or accepted request FOR AN ACTIVE RIDE
     const activeReq = await pool.query(
-      `SELECT id FROM ride_requests WHERE passenger_id = $1 AND status IN ('pending', 'accepted')`,
+      `SELECT rr.id FROM ride_requests rr
+       JOIN rides r ON rr.ride_id = r.id
+       WHERE rr.passenger_id = $1 AND rr.status IN ('pending', 'accepted')
+       AND r.status IN ('active', 'in_progress')`,
       [req.user.id]
     );
     if (activeReq.rows.length > 0) {
@@ -282,7 +288,7 @@ router.post('/respond', verifyToken, async (req, res) => {
   if (!['accepted', 'rejected'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
   try {
     const check = await pool.query(
-      `SELECT rr.id, rr.passenger_id, rr.pickup_location FROM ride_requests rr
+      `SELECT rr.id, rr.passenger_id, rr.pickup_location, rr.ride_id FROM ride_requests rr
        JOIN rides r ON rr.ride_id = r.id
        WHERE rr.id = $1 AND r.driver_id = $2`,
       [request_id, req.user.id]
@@ -294,8 +300,8 @@ router.post('/respond', verifyToken, async (req, res) => {
     if (action === 'accepted') {
       await pool.query(
         `UPDATE rides SET available_seats = available_seats - 1
-         WHERE id = (SELECT ride_id FROM ride_requests WHERE id = $1) AND available_seats > 0`,
-        [request_id]
+         WHERE id = $1 AND available_seats > 0`,
+        [check.rows[0].ride_id]
       );
       await pool.query(
         `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
@@ -331,26 +337,56 @@ router.post('/start/:id', verifyToken, async (req, res) => {
 router.post('/complete/:id', verifyToken, async (req, res) => {
   if (req.user.role !== 'driver') return res.status(403).json({ error: 'Only drivers can complete rides' });
   try {
-    const check = await pool.query(`SELECT id FROM rides WHERE id = $1 AND driver_id = $2`, [req.params.id, req.user.id]);
+    const check = await pool.query(`SELECT id, start_location FROM rides WHERE id = $1 AND driver_id = $2`, [req.params.id, req.user.id]);
     if (check.rows.length === 0) return res.status(404).json({ error: 'Ride not found.' });
+
     await pool.query(`UPDATE rides SET status = 'completed' WHERE id = $1`, [req.params.id]);
-    // Remove from H3 spatial cache
     h3cache.removeRide(parseInt(req.params.id));
-    const passengers = await pool.query(
+
+    const passengerRows = await pool.query(
       `SELECT passenger_id FROM ride_requests WHERE ride_id = $1 AND status = 'accepted'`,
       [req.params.id]
     );
-    for (const p of passengers.rows) {
+
+    // Calculate environmental impact
+    const rideInfo = await pool.query(
+      `SELECT ST_Length(route_polyline::geography) / 1000.0 as dist_km FROM rides WHERE id = $1`,
+      [req.params.id]
+    );
+    const distKm = parseFloat(rideInfo.rows[0]?.dist_km) || 0;
+    const passengerCount = passengerRows.rows.length;
+    const co2SavedTotal = (distKm * 120 * passengerCount);
+
+    // Cache impact on the ride record
+    await pool.query(
+      `UPDATE rides SET distance_km = $1, co2_saved_g = $2 WHERE id = $3`,
+      [distKm, co2SavedTotal, req.params.id]
+    );
+
+    // Update driver's lifetime stats
+    await pool.query(
+      `UPDATE users SET total_distance_km = total_distance_km + $1, total_co2_saved = total_co2_saved + $2 WHERE id = $3`,
+      [distKm, co2SavedTotal, req.user.id]
+    );
+
+    // Notify and update stats for each passenger
+    for (const p of passengerRows.rows) {
       await pool.query(
         `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
-        [p.passenger_id, 'Your ride has been completed. Please rate your driver!']
+        [p.passenger_id, `Your ride from ${check.rows[0].start_location} is complete. You saved ${(distKm * 120).toFixed(0)}g of CO2! Please rate your driver.`]
+      );
+      await pool.query(
+        `UPDATE users SET total_distance_km = total_distance_km + $1, total_co2_saved = total_co2_saved + $2 WHERE id = $3`,
+        [distKm, distKm * 120, p.passenger_id]
       );
     }
+
     await pool.query(
       `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
-      [req.user.id, 'Ride marked as completed. Please rate your passengers.']
+      [req.user.id, `Ride completed! You and your passengers saved ${co2SavedTotal.toFixed(0)}g of CO2. Please rate your passengers.`]
     );
-    res.json({ message: 'Ride completed.' });
+
+    res.json({ message: 'Ride completed.', co2_saved_g: co2SavedTotal });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -476,6 +512,27 @@ router.get('/:id/polyline', verifyToken, async (req, res) => {
     }
     const geojson = JSON.parse(result.rows[0].geojson);
     res.json({ coordinates: geojson.coordinates }); // [lng, lat] pairs
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── DELETE /request/:id — passenger deletes their own ride request ───────────
+router.delete('/request/:id', verifyToken, async (req, res) => {
+  if (req.user.role !== 'passenger') return res.status(403).json({ error: 'Only passengers can delete requests' });
+  try {
+    const check = await pool.query(
+      `SELECT rr.id, rr.status, r.status as ride_status FROM ride_requests rr
+       JOIN rides r ON r.id = rr.ride_id
+       WHERE rr.id = $1 AND rr.passenger_id = $2`,
+      [req.params.id, req.user.id]
+    );
+    if (check.rows.length === 0) return res.status(404).json({ error: 'Request not found.' });
+    if (check.rows[0].status === 'accepted' && ['active', 'in_progress'].includes(check.rows[0].ride_status)) {
+      return res.status(400).json({ error: 'Cannot delete an active accepted request. Cancel it instead.' });
+    }
+    await pool.query(`DELETE FROM ride_requests WHERE id = $1`, [req.params.id]);
+    res.json({ message: 'Request deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

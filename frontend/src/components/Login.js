@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const P = {
@@ -22,6 +22,13 @@ export default function Login({ onLogin }) {
   const [error, setError]           = useState('');
   const [success, setSuccess]       = useState('');
   const [loading, setLoading]       = useState(false);
+  const [stats, setStats]           = useState(null);
+
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/stats')
+      .then(r => setStats(r.data))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async () => {
     setError(''); setSuccess('');
@@ -159,6 +166,46 @@ export default function Login({ onLogin }) {
               }}>{tag}</span>
             ))}
           </div>
+
+          {/* Platform Stats */}
+          {stats && (
+            <div style={{
+              marginTop: 40,
+              animation: 'fadeUp 0.5s 0.2s ease both',
+            }}>
+              <div style={{
+                fontSize: 11, letterSpacing: '3px', color: P.faint,
+                textTransform: 'uppercase', fontWeight: 600, marginBottom: 16,
+              }}>Platform Impact</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                {[
+                  { value: stats.completed_rides, label: 'Rides Completed', icon: '🚗' },
+                  { value: stats.total_users, label: 'Students Joined', icon: '👥' },
+                  { value: `${(stats.total_co2_saved_g / 1000).toFixed(1)}kg`, label: 'CO₂ Saved', icon: '🌍' },
+                  { value: `${stats.trees_equivalent}`, label: 'Trees Equivalent', icon: '🌳' },
+                ].map((s, i) => (
+                  <div key={i} style={{
+                    background: 'rgba(16,44,38,0.04)',
+                    border: '1px solid rgba(16,44,38,0.10)',
+                    borderRadius: 12, padding: '14px 16px',
+                  }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: P.accent, lineHeight: 1.2 }}>{s.value}</div>
+                    <div style={{ fontSize: 11, color: P.faint, marginTop: 2 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              {stats.total_distance_km > 0 && (
+                <div style={{
+                  marginTop: 12, fontSize: 12, color: P.muted, fontWeight: 500,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <span style={{ color: P.accent, fontWeight: 700 }}>{Number(stats.total_distance_km).toFixed(0)} km</span>
+                  shared across all rides
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Decorative SVG — road/route lines */}
