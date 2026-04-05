@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { io as socketIO } from 'socket.io-client';
 import MapPicker from './MapPicker';
@@ -36,6 +36,14 @@ function FitBounds({ latLngs }) {
   return null;
 }
 
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function RoutePreviewMap({ coordinates, pickupLat, pickupLng }) {
   const latLngs = coordinates.map(c => [c[1], c[0]]);
   const mid = latLngs[Math.floor(latLngs.length / 2)] || [8.4682, 76.9829];
@@ -70,8 +78,6 @@ export default function Dashboard({ token, role, onLogout }) {
   const [activePage, setActivePage] = useState('dashboard');
   const [userName, setUserName] = useState('');
   const [userRegNumber, setUserRegNumber] = useState('');
-  const [totalCo2Saved, setTotalCo2Saved] = useState(0);
-  const [totalDistanceKm, setTotalDistanceKm] = useState(0);
   const [platformStats, setPlatformStats] = useState(null);
 
   const [pickupLocation, setPickupLocation] = useState(null);
@@ -110,10 +116,16 @@ export default function Dashboard({ token, role, onLogout }) {
   const chatEndRef = useRef(null);
   const socketRef = useRef(null);
 
-  // Live Location States
-  const [liveLocations, setLiveLocations] = useState({}); // Stores incoming GPS from socket
-  const [viewingLiveUser, setViewingLiveUser] = useState(null); // { id, name, role }
+  const [liveLocations, setLiveLocations] = useState({});
+  const [viewingLiveUser, setViewingLiveUser] = useState(null);
   const watchId = useRef(null);
+
+  const activeRideId = useMemo(() => {
+    if (role === 'driver') {
+      return myRides.find(r => ['active', 'in_progress'].includes(r.status))?.id ?? null;
+    }
+    return myStatus.find(r => r.status === 'accepted' && !['completed', 'expired'].includes(r.ride_status))?.ride_id ?? null;
+  }, [myRides, myStatus, role]);
 
 
   const myUserId = (() => { try { return JSON.parse(atob(token.split('.')[1])).id; } catch { return null; } })();
@@ -134,12 +146,7 @@ export default function Dashboard({ token, role, onLogout }) {
   // ── Effects ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     axios.get('http://localhost:5000/api/auth/me', { headers: { Authorization: token } })
-      .then(res => { 
-        setUserName(res.data.name); 
-        setUserRegNumber(res.data.reg_number);
-        setTotalCo2Saved(res.data.total_co2_saved || 0);
-        setTotalDistanceKm(res.data.total_distance_km || 0);
-      })
+      .then(res => { setUserName(res.data.name); setUserRegNumber(res.data.reg_number); })
       .catch(console.error);
     if (role === 'driver') { fetchRequests(); fetchMyRides(); fetchAnalytics(); }
     if (role === 'passenger') fetchMyStatus();
@@ -147,10 +154,11 @@ export default function Dashboard({ token, role, onLogout }) {
     axios.get('http://localhost:5000/api/stats').then(r => setPlatformStats(r.data)).catch(() => {});
     const notifInterval = setInterval(fetchNotifications, 30000);
     const rideInterval = setInterval(() => {
-      if (role === 'driver') { fetchRequests(); fetchMyRides(); }
+      if (role === 'driver') { fetchRequests(); fetchMyRides(); fetchAnalytics(); }
       if (role === 'passenger') fetchMyStatus();
       fetchPendingRatings();
-    }, 15000);
+      fetchHistory();
+    }, 5000);
     return () => { clearInterval(notifInterval); clearInterval(rideInterval); };
   }, []);
 
@@ -178,34 +186,23 @@ export default function Dashboard({ token, role, onLogout }) {
   }, [chatMessages]);
 
   useEffect(() => {
-    // Determine active ride ID to broadcast location for
-    let activeRideId = null;
-    if (role === 'driver') {
-      const active = myRides.find(r => ['active', 'in_progress'].includes(r.status));
-      if (active) activeRideId = active.id;
-    } else {
-      const accepted = myStatus.find(r => r.status === 'accepted' && !['completed', 'expired'].includes(r.ride_status));
-      if (accepted) activeRideId = accepted.ride_id;
-    }
-
-    if (activeRideId && navigator.geolocation) {
-      // Ensure we joined the ride socket room
-      socketRef.current?.emit('join_ride', activeRideId);
-
-      watchId.current = navigator.geolocation.watchPosition((pos) => {
-        const { latitude, longitude } = pos.coords;
+    if (!activeRideId || !navigator.geolocation) return;
+    socketRef.current?.emit('join_ride', activeRideId);
+    watchId.current = navigator.geolocation.watchPosition(
+      (pos) => {
         if (socketRef.current) {
           socketRef.current.emit(role === 'driver' ? 'driver:location' : 'passenger:location', {
-            lat: latitude, lng: longitude, rideId: activeRideId
+            lat: pos.coords.latitude, lng: pos.coords.longitude, rideId: activeRideId
           });
         }
-      }, err => console.warn('Geolocation error:', err), { enableHighAccuracy: true });
-    }
-
+      },
+      err => console.warn('Geolocation error:', err),
+      { enableHighAccuracy: true }
+    );
     return () => {
       if (watchId.current) navigator.geolocation.clearWatch(watchId.current);
     };
-  }, [myRides, myStatus, role]);
+  }, [activeRideId]);
 
   // ── Fetchers ─────────────────────────────────────────────────────────────────
   const fetchRequests = async () => {
@@ -322,6 +319,7 @@ export default function Dashboard({ token, role, onLogout }) {
     try {
       await axios.post(`http://localhost:5000/api/rides/complete/${rideId}`, {}, { headers: { Authorization: token } });
       fetchMyRides(); await fetchPendingRatings(); setRatingStars(0); setRatingHover(0);
+      fetchHistory(); fetchAnalytics();
     } catch(err) { showToast(err.response?.data?.error || 'Error', 'error'); }
   };
   const handleRate = async (rideId, rateeId, stars) => {
@@ -509,6 +507,7 @@ export default function Dashboard({ token, role, onLogout }) {
               <button key={item.key} onClick={() => {
                 setActivePage(item.key);
                 if (item.key === 'notifications' && unreadCount > 0) handleMarkNotificationsRead();
+                if (item.key === 'history') fetchHistory();
               }} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                 padding: '9px 12px', marginBottom: 2,
@@ -733,22 +732,15 @@ export default function Dashboard({ token, role, onLogout }) {
     const acceptedRide = myStatus.find(r => r.status === 'accepted' && !['completed', 'expired'].includes(r.ride_status));
     mainContent = (
       <div style={{ maxWidth: 700 }}>
-        {acceptedRide && (() => {
-          // ETA calculation from live driver GPS
+        {(() => {
+          if (!acceptedRide) return null;
           const driverLoc = liveLocations['driver'];
           let etaMin = null;
           if (driverLoc && acceptedRide.pickup_lat && acceptedRide.pickup_lng) {
-            const R = 6371000;
-            const dLat = (acceptedRide.pickup_lat - driverLoc.lat) * Math.PI / 180;
-            const dLon = (acceptedRide.pickup_lng - driverLoc.lng) * Math.PI / 180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(driverLoc.lat*Math.PI/180)*Math.cos(acceptedRide.pickup_lat*Math.PI/180)*Math.sin(dLon/2)**2;
-            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            etaMin = Math.max(1, Math.round(dist / 5.0 / 60)); // 5 m/s ~ 18 km/h urban
+            const dist = haversineMeters(driverLoc.lat, driverLoc.lng, acceptedRide.pickup_lat, acceptedRide.pickup_lng);
+            etaMin = Math.max(1, Math.round(dist / 5.0 / 60)); // 5 m/s ≈ 18 km/h urban
           }
-          // Fallback: time until departure
-          const depMs = new Date(acceptedRide.departure_time).getTime();
-          const nowMs = Date.now();
-          const timeUntilDep = Math.max(0, Math.round((depMs - nowMs) / 60000));
+          const timeUntilDep = Math.max(0, Math.round((new Date(acceptedRide.departure_time).getTime() - Date.now()) / 60000));
           const displayEta = etaMin !== null ? etaMin : timeUntilDep;
 
           return (
@@ -855,7 +847,6 @@ export default function Dashboard({ token, role, onLogout }) {
             </div>
           );
         })()}
-
         {myStatus.length > 0 && (
           <div style={card}>
             <div style={{ padding: '16px 24px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700 }}>My Requests</div>

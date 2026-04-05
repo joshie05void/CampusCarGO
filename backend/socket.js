@@ -3,9 +3,8 @@ const jwt = require('jsonwebtoken');
 
 let _io = null;
 
-// In-memory: userId → { lat, lng, rideId, updatedAt }
+// In-memory: driverId → { lat, lng, rideId, updatedAt }
 const driverLocations = new Map();
-const passengerLocations = new Map();
 
 function init(server) {
   _io = new Server(server, {
@@ -52,9 +51,6 @@ function init(server) {
     // Passenger broadcasts live GPS position
     socket.on('passenger:location', ({ lat, lng, rideId }) => {
       if (lat == null || lng == null || !rideId) return;
-      passengerLocations.set(socket.user.id, { lat, lng, rideId, updatedAt: Date.now() });
-
-      // Live tracking: send to driver and other passengers in the ride room
       _io.to(`ride_${rideId}`).emit('passenger:location_update', { passengerId: socket.user.id, lat, lng, rideId });
     });
 
@@ -81,7 +77,6 @@ function init(server) {
 
     socket.on('disconnect', () => {
       driverLocations.delete(socket.user.id);
-      passengerLocations.delete(socket.user.id);
     });
   });
 

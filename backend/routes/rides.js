@@ -337,7 +337,10 @@ router.post('/start/:id', verifyToken, async (req, res) => {
 router.post('/complete/:id', verifyToken, async (req, res) => {
   if (req.user.role !== 'driver') return res.status(403).json({ error: 'Only drivers can complete rides' });
   try {
-    const check = await pool.query(`SELECT id, start_location FROM rides WHERE id = $1 AND driver_id = $2`, [req.params.id, req.user.id]);
+    const check = await pool.query(
+      `SELECT id, start_location, ST_Length(route_polyline::geography) / 1000.0 as dist_km FROM rides WHERE id = $1 AND driver_id = $2`,
+      [req.params.id, req.user.id]
+    );
     if (check.rows.length === 0) return res.status(404).json({ error: 'Ride not found.' });
 
     await pool.query(`UPDATE rides SET status = 'completed' WHERE id = $1`, [req.params.id]);
@@ -348,43 +351,34 @@ router.post('/complete/:id', verifyToken, async (req, res) => {
       [req.params.id]
     );
 
-    // Calculate environmental impact
-    const rideInfo = await pool.query(
-      `SELECT ST_Length(route_polyline::geography) / 1000.0 as dist_km FROM rides WHERE id = $1`,
-      [req.params.id]
-    );
-    const distKm = parseFloat(rideInfo.rows[0]?.dist_km) || 0;
+    const CO2_G_PER_KM = 120;
+    const distKm = parseFloat(check.rows[0].dist_km) || 0;
     const passengerCount = passengerRows.rows.length;
-    const co2SavedTotal = (distKm * 120 * passengerCount);
+    const co2PerPassenger = distKm * CO2_G_PER_KM;
+    const co2SavedTotal = co2PerPassenger * passengerCount;
+    const startLocation = check.rows[0].start_location;
 
-    // Cache impact on the ride record
-    await pool.query(
-      `UPDATE rides SET distance_km = $1, co2_saved_g = $2 WHERE id = $3`,
-      [distKm, co2SavedTotal, req.params.id]
-    );
-
-    // Update driver's lifetime stats
-    await pool.query(
-      `UPDATE users SET total_distance_km = total_distance_km + $1, total_co2_saved = total_co2_saved + $2 WHERE id = $3`,
-      [distKm, co2SavedTotal, req.user.id]
-    );
-
-    // Notify and update stats for each passenger
-    for (const p of passengerRows.rows) {
-      await pool.query(
-        `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
-        [p.passenger_id, `Your ride from ${check.rows[0].start_location} is complete. You saved ${(distKm * 120).toFixed(0)}g of CO2! Please rate your driver.`]
-      );
-      await pool.query(
+    await Promise.all([
+      pool.query(`UPDATE rides SET distance_km = $1, co2_saved_g = $2 WHERE id = $3`, [distKm, co2SavedTotal, req.params.id]),
+      pool.query(
         `UPDATE users SET total_distance_km = total_distance_km + $1, total_co2_saved = total_co2_saved + $2 WHERE id = $3`,
-        [distKm, distKm * 120, p.passenger_id]
-      );
-    }
-
-    await pool.query(
-      `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
-      [req.user.id, `Ride completed! You and your passengers saved ${co2SavedTotal.toFixed(0)}g of CO2. Please rate your passengers.`]
-    );
+        [distKm, co2SavedTotal, req.user.id]
+      ),
+      pool.query(
+        `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
+        [req.user.id, `Ride completed! You and your passengers saved ${co2SavedTotal.toFixed(0)}g of CO2. Please rate your passengers.`]
+      ),
+      ...passengerRows.rows.map(p => Promise.all([
+        pool.query(
+          `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
+          [p.passenger_id, `Your ride from ${startLocation} is complete. You saved ${co2PerPassenger.toFixed(0)}g of CO2! Please rate your driver.`]
+        ),
+        pool.query(
+          `UPDATE users SET total_distance_km = total_distance_km + $1, total_co2_saved = total_co2_saved + $2 WHERE id = $3`,
+          [distKm, co2PerPassenger, p.passenger_id]
+        ),
+      ])),
+    ]);
 
     res.json({ message: 'Ride completed.', co2_saved_g: co2SavedTotal });
   } catch (err) {
