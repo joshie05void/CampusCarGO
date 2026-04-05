@@ -53,15 +53,15 @@ function RoutePreviewMap({ coordinates, pickupLat, pickupLng }) {
   const latLngs = coordinates.map(c => [c[1], c[0]]);
   const mid = latLngs[Math.floor(latLngs.length / 2)] || [8.4682, 76.9829];
   return (
-    <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12, border: `1px solid ${C.border}` }}>
+    <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12, border: `1px solid ${C.border}`, boxShadow: '0 2px 12px rgba(16,44,38,0.08)' }}>
       <MapContainer center={mid} zoom={13} style={{ height: '200px', width: '100%' }}
         scrollWheelZoom={false} dragging={false} zoomControl={false} attributionControl={false}>
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
         <FitBounds latLngs={latLngs} />
-        <Polyline positions={latLngs} color="#d97706" weight={4} opacity={0.95} />
+        <Polyline positions={latLngs} color={C.accent} weight={5} opacity={0.85} />
         {pickupLat && pickupLng && (
-          <CircleMarker center={[pickupLat, pickupLng]} radius={8}
-            color="#fff" fillColor="#d97706" fillOpacity={1} weight={2} />
+          <CircleMarker center={[pickupLat, pickupLng]} radius={9}
+            color="#ffffff" fillColor={C.accent} fillOpacity={1} weight={3} />
         )}
       </MapContainer>
     </div>
@@ -110,6 +110,10 @@ export default function Dashboard({ token, role, onLogout }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [ratingStars, setRatingStars] = useState(0);
   const [ratingHover, setRatingHover] = useState(0);
+
+  const [offerRouteCoords, setOfferRouteCoords] = useState(null);
+  const [offerRouteStats, setOfferRouteStats] = useState(null);
+  const [offerRouteFetching, setOfferRouteFetching] = useState(false);
 
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
@@ -208,6 +212,27 @@ export default function Dashboard({ token, role, onLogout }) {
       if (watchId.current) navigator.geolocation.clearWatch(watchId.current);
     };
   }, [activeRideId]);
+
+  // ── Route preview for Offer page ─────────────────────────────────────────────
+  useEffect(() => {
+    if (role !== 'driver' || !pickupLocation) {
+      if (!pickupLocation) { setOfferRouteCoords(null); setOfferRouteStats(null); }
+      return;
+    }
+    setOfferRouteFetching(true);
+    setOfferRouteCoords(null);
+    setOfferRouteStats(null);
+    axios.post('http://localhost:5000/api/maps/route', {
+      start_lng: pickupLocation.lng, start_lat: pickupLocation.lat,
+      end_lng: 76.9829, end_lat: 8.4682,
+    }, { headers: { Authorization: token } })
+      .then(res => {
+        setOfferRouteCoords(res.data.coordinates);
+        setOfferRouteStats({ distance: res.data.distance_meters, duration: res.data.duration_seconds });
+      })
+      .catch(() => {})
+      .finally(() => setOfferRouteFetching(false));
+  }, [pickupLocation]);
 
   // ── Fetchers ─────────────────────────────────────────────────────────────────
   const fetchRequests = async () => {
@@ -955,8 +980,10 @@ export default function Dashboard({ token, role, onLogout }) {
   }
 
   function renderFind() {
+    const hasResults = matches.length > 0;
     return (
-      <div style={{ maxWidth: 700 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: hasResults ? '420px 1fr' : '1fr', gap: 24, alignItems: 'start' }}>
+      <div>
         <div style={{ ...card, padding: '24px', marginBottom: 20 }}>
           <MapPicker label="Pickup location" onLocationSelect={setPickupLocation} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
@@ -1023,86 +1050,6 @@ export default function Dashboard({ token, role, onLogout }) {
           </div>
         )}
 
-        {matches.length > 0 && (
-          <>
-            <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 16 }}>Smart Matches</div>
-            {filteredMatches.map((m, i) => {
-              const score = m.compatibility_score;
-              const scoreColor = score >= 60 ? C.successText : score >= 35 ? C.warningText : C.errorText;
-              const scoreBarGradient = score >= 60
-                ? 'linear-gradient(90deg, #10d98a, #00ff88)'
-                : score >= 35
-                  ? 'linear-gradient(90deg, #fbbf24, #f97316)'
-                  : 'linear-gradient(90deg, #ff3366, #ff6688)';
-              const fullyBooked = m.available_seats === 0;
-              return (
-                <div key={i}
-                  style={{ ...card, padding: 20, marginBottom: 12, animation: `fadeUp 0.3s ${i * 0.05}s ease both`, transition: 'box-shadow 0.2s, border-color 0.2s', cursor: 'default' }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 32px rgba(0,220,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(0,220,255,0.25)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.4)'; e.currentTarget.style.borderColor = C.border; }}
-                >
-                  <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 14 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(m.driver_name), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700 }}>{getInitials(m.driver_name)}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>
-                            {m.driver_name}
-                            {m.driver_avg_rating && <span style={{ fontSize: 12, color: C.warningText, fontWeight: 500, marginLeft: 8 }}>★ {Number(m.driver_avg_rating).toFixed(1)}</span>}
-                          </div>
-                          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                            {m.start_location} → SCT Campus · {new Date(m.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {m.available_seats} seats
-                          </div>
-                        </div>
-                        <div style={{ position: 'relative', width: 52, height: 52, flexShrink: 0 }}>
-                          <svg viewBox="0 0 36 36" width="52" height="52" style={{ transform: 'rotate(-90deg)' }}>
-                            <circle cx="18" cy="18" r="15.9" fill="none" stroke={C.borderLight} strokeWidth="3" />
-                            <circle cx="18" cy="18" r="15.9" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={`${score} 100`} strokeLinecap="round"
-                              style={{ filter: score >= 60 ? `drop-shadow(0 0 3px ${scoreColor})` : 'none' }} />
-                          </svg>
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: scoreColor }}>{score}%</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {m.score_breakdown && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
-                      {[{ label: 'Detour', value: m.score_breakdown.detour }, { label: 'Time', value: m.score_breakdown.time }, { label: 'Proximity', value: m.score_breakdown.proximity }].map((b, j) => {
-                        const c = b.value >= 60 ? C.successText : b.value >= 35 ? C.warningText : C.errorText;
-                        const barGrad = b.value >= 60 ? 'linear-gradient(90deg, #10d98a, #00ff88)' : b.value >= 35 ? 'linear-gradient(90deg, #fbbf24, #f97316)' : 'linear-gradient(90deg, #ff3366, #ff6688)';
-                        return (
-                          <div key={j}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.faint, marginBottom: 4 }}><span>{b.label}</span><span style={{ color: c, fontWeight: 700 }}>{b.value}%</span></div>
-                            <div style={{ height: 3, background: C.borderLight, borderRadius: 2 }}><div style={{ width: `${b.value}%`, height: '100%', background: barGrad, borderRadius: 2, transition: 'width 0.6s ease' }} /></div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <button onClick={() => handleToggleMap(m.ride_id)} style={{ width: '100%', padding: 8, marginBottom: 10, background: expandedMatchId === m.ride_id ? C.accentDim : C.surface, color: expandedMatchId === m.ride_id ? C.accent : C.muted, border: `1px solid ${expandedMatchId === m.ride_id ? 'rgba(0,220,255,0.3)' : C.border}`, borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
-                    {expandedMatchId === m.ride_id ? '▲ Hide map' : '▼ Show map'}
-                  </button>
-
-                  {expandedMatchId === m.ride_id && (
-                    polylines[m.ride_id] === undefined ? (
-                      <div style={{ height: 200, background: C.surface, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13, marginBottom: 12 }}>Loading map…</div>
-                    ) : polylines[m.ride_id] && polylines[m.ride_id].length > 0 ? (
-                      <RoutePreviewMap coordinates={polylines[m.ride_id]} pickupLat={pickupLocation?.lat} pickupLng={pickupLocation?.lng} />
-                    ) : (
-                      <div style={{ height: 200, background: C.surface, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13, marginBottom: 12 }}>Route preview not available</div>
-                    )
-                  )}
-
-                  {fullyBooked && <div style={{ fontSize: 12, color: C.errorText, fontWeight: 600, marginBottom: 8 }}>Fully Booked</div>}
-                  <button onClick={() => !fullyBooked && handleRequestRide(m)} disabled={fullyBooked} style={{ ...btnPrimary, width: '100%', opacity: fullyBooked ? 0.5 : 1, cursor: fullyBooked ? 'not-allowed' : 'pointer' }}>Request</button>
-                </div>
-              );
-            })}
-          </>
-        )}
-
         {matches.length === 0 && !message && (
           <div style={{ ...card, padding: '48px 32px', textAlign: 'center' }}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={C.faint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1110,13 +1057,107 @@ export default function Dashboard({ token, role, onLogout }) {
           </div>
         )}
       </div>
-    );
+
+      {matches.length > 0 && (
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 16 }}>Smart Matches</div>
+          {filteredMatches.map((m, i) => {
+            const score = m.compatibility_score;
+            const scoreColor = score >= 60 ? C.successText : score >= 35 ? C.warningText : C.errorText;
+            const fullyBooked = m.available_seats === 0;
+            return (
+              <div key={i}
+                style={{ ...card, padding: 20, marginBottom: 12, animation: `fadeUp 0.3s ${i * 0.05}s ease both`, transition: 'box-shadow 0.2s, border-color 0.2s', cursor: 'default' }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 32px rgba(0,220,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(0,220,255,0.25)'; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.4)'; e.currentTarget.style.borderColor = C.border; }}
+              >
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 14 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, background: getAvatarColor(m.driver_name), color: '#06080f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700 }}>{getInitials(m.driver_name)}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>
+                          {m.driver_name}
+                          {m.driver_avg_rating && <span style={{ fontSize: 12, color: C.warningText, fontWeight: 500, marginLeft: 8 }}>★ {Number(m.driver_avg_rating).toFixed(1)}</span>}
+                        </div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                          {m.start_location} → SCT Campus · {new Date(m.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {m.available_seats} seats
+                        </div>
+                      </div>
+                      <div style={{ position: 'relative', width: 52, height: 52, flexShrink: 0 }}>
+                        <svg viewBox="0 0 36 36" width="52" height="52" style={{ transform: 'rotate(-90deg)' }}>
+                          <circle cx="18" cy="18" r="15.9" fill="none" stroke={C.borderLight} strokeWidth="3" />
+                          <circle cx="18" cy="18" r="15.9" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={`${score} 100`} strokeLinecap="round"
+                            style={{ filter: score >= 60 ? `drop-shadow(0 0 3px ${scoreColor})` : 'none' }} />
+                        </svg>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: scoreColor }}>{score}%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {m.score_breakdown && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
+                    {[{ label: 'Detour', value: m.score_breakdown.detour }, { label: 'Time', value: m.score_breakdown.time }, { label: 'Proximity', value: m.score_breakdown.proximity }].map((b, j) => {
+                      const c = b.value >= 60 ? C.successText : b.value >= 35 ? C.warningText : C.errorText;
+                      const barGrad = b.value >= 60 ? 'linear-gradient(90deg, #10d98a, #00ff88)' : b.value >= 35 ? 'linear-gradient(90deg, #fbbf24, #f97316)' : 'linear-gradient(90deg, #ff3366, #ff6688)';
+                      return (
+                        <div key={j}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.faint, marginBottom: 4 }}><span>{b.label}</span><span style={{ color: c, fontWeight: 700 }}>{b.value}%</span></div>
+                          <div style={{ height: 3, background: C.borderLight, borderRadius: 2 }}><div style={{ width: `${b.value}%`, height: '100%', background: barGrad, borderRadius: 2, transition: 'width 0.6s ease' }} /></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <button onClick={() => handleToggleMap(m.ride_id)} style={{ width: '100%', padding: 8, marginBottom: 10, background: expandedMatchId === m.ride_id ? C.accentDim : C.surface, color: expandedMatchId === m.ride_id ? C.accent : C.muted, border: `1px solid ${expandedMatchId === m.ride_id ? C.accentLight : C.border}`, borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                  {expandedMatchId === m.ride_id ? '▲ Hide map' : '▼ Show map'}
+                </button>
+
+                {expandedMatchId === m.ride_id && (
+                  polylines[m.ride_id] === undefined ? (
+                    <div style={{ height: 200, background: C.surface, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13, marginBottom: 12 }}>Loading map…</div>
+                  ) : polylines[m.ride_id] && polylines[m.ride_id].length > 0 ? (
+                    <>
+                      <RoutePreviewMap coordinates={polylines[m.ride_id]} pickupLat={pickupLocation?.lat} pickupLng={pickupLocation?.lng} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                        <div style={{ background: C.surface, borderRadius: 9, padding: '10px 12px', border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.accent, flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>Start</div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{m.start_location}</div>
+                          </div>
+                        </div>
+                        <div style={{ background: C.surface, borderRadius: 9, padding: '10px 12px', border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.successText, flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>End</div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>SCT Campus</div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ height: 200, background: C.surface, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.faint, fontSize: 13, marginBottom: 12 }}>Route preview not available</div>
+                  )
+                )}
+
+                {fullyBooked && <div style={{ fontSize: 12, color: C.errorText, fontWeight: 600, marginBottom: 8 }}>Fully Booked</div>}
+                <button onClick={() => !fullyBooked && handleRequestRide(m)} disabled={fullyBooked} style={{ ...btnPrimary, width: '100%', opacity: fullyBooked ? 0.5 : 1, cursor: fullyBooked ? 'not-allowed' : 'pointer' }}>Request</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
   }
 
   function renderOffer() {
     return (
       <div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28, alignItems: 'start' }}>
           <div style={{ ...card, padding: 24 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 20 }}>Create a Ride</div>
             <MapPicker label="Start Location" onLocationSelect={setPickupLocation} />
@@ -1152,33 +1193,81 @@ export default function Dashboard({ token, role, onLogout }) {
           </div>
 
           <div style={{ ...card, padding: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 16 }}>Route Preview</div>
-            {pickupLocation ? (
-              <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${C.border}` }}>
-                <MapContainer
-                  key={`offer-${pickupLocation.lat}-${pickupLocation.lng}`}
-                  center={[pickupLocation.lat, pickupLocation.lng]}
-                  zoom={12}
-                  style={{ height: '280px', width: '100%' }}
-                  scrollWheelZoom={false}
-                  attributionControl={false}
-                  zoomControl={false}
-                >
-                  <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                  <FitBounds latLngs={[[pickupLocation.lat, pickupLocation.lng], [8.4682, 76.9829]]} />
-                  <CircleMarker center={[pickupLocation.lat, pickupLocation.lng]} radius={9}
-                    color="#06080f" fillColor={C.accent} fillOpacity={1} weight={2} />
-                  <CircleMarker center={[8.4682, 76.9829]} radius={9}
-                    color="#06080f" fillColor={C.successText} fillOpacity={1} weight={2} />
-                </MapContainer>
-              </div>
-            ) : (
-              <div style={{ height: 280, background: C.surface, borderRadius: 12, border: `1px dashed ${C.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.faint, gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Route Preview</div>
+              {offerRouteStats && (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: '3px 10px' }}>
+                    {(offerRouteStats.distance / 1000).toFixed(1)} km
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: '3px 10px' }}>
+                    ~{Math.round(offerRouteStats.duration / 60)} min
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {!pickupLocation ? (
+              <div style={{ height: 300, background: C.surface, borderRadius: 12, border: `1px dashed ${C.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.faint, gap: 12 }}>
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="16,3 21,3 21,8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21,16 21,21 16,21"/><line x1="15" y1="15" x2="21" y2="21"/>
+                  <path d="M3 12h18M12 3l9 9-9 9"/>
                 </svg>
                 <span style={{ fontSize: 13 }}>Select a start location to preview route</span>
               </div>
+            ) : offerRouteFetching ? (
+              <div style={{ height: 300, background: C.surface, borderRadius: 12, border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.muted, gap: 12 }}>
+                <div style={{ width: 20, height: 20, border: `2.5px solid ${C.border}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <span style={{ fontSize: 13 }}>Calculating route…</span>
+              </div>
+            ) : (
+              <>
+                <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${C.border}`, boxShadow: '0 2px 12px rgba(16,44,38,0.08)' }}>
+                  <MapContainer
+                    key={`offer-${pickupLocation.lat}-${pickupLocation.lng}`}
+                    center={[pickupLocation.lat, pickupLocation.lng]}
+                    zoom={12}
+                    style={{ height: '300px', width: '100%' }}
+                    scrollWheelZoom={false}
+                    attributionControl={false}
+                    zoomControl={false}
+                  >
+                    <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+                    <FitBounds latLngs={
+                      offerRouteCoords && offerRouteCoords.length > 0
+                        ? offerRouteCoords.map(c => [c[1], c[0]])
+                        : [[pickupLocation.lat, pickupLocation.lng], [8.4682, 76.9829]]
+                    } />
+                    {offerRouteCoords && offerRouteCoords.length > 0 && (
+                      <Polyline
+                        positions={offerRouteCoords.map(c => [c[1], c[0]])}
+                        color={C.accent}
+                        weight={5}
+                        opacity={0.85}
+                      />
+                    )}
+                    <CircleMarker center={[pickupLocation.lat, pickupLocation.lng]} radius={10}
+                      color="#ffffff" fillColor={C.accent} fillOpacity={1} weight={3} />
+                    <CircleMarker center={[8.4682, 76.9829]} radius={10}
+                      color="#ffffff" fillColor={C.successText} fillOpacity={1} weight={3} />
+                  </MapContainer>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+                  <div style={{ background: C.surface, borderRadius: 10, padding: '12px 14px', border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: C.accent, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>Start</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{pickupLocation.name}</div>
+                    </div>
+                  </div>
+                  <div style={{ background: C.surface, borderRadius: 10, padding: '12px 14px', border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: C.successText, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 1 }}>End</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>SCT Campus</div>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>
