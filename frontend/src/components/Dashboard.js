@@ -32,7 +32,12 @@ const C = {
 
 function FitBounds({ latLngs }) {
   const map = useMap();
-  useEffect(() => { if (latLngs.length > 0) map.fitBounds(latLngs, { padding: [20, 20] }); }, []);
+  useEffect(() => {
+    if (latLngs.length > 0) {
+      map.invalidateSize();
+      map.fitBounds(latLngs, { padding: [20, 20] });
+    }
+  }, []);
   return null;
 }
 
@@ -53,10 +58,10 @@ function RoutePreviewMap({ coordinates, pickupLat, pickupLng }) {
         scrollWheelZoom={false} dragging={false} zoomControl={false} attributionControl={false}>
         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
         <FitBounds latLngs={latLngs} />
-        <Polyline positions={latLngs} color={C.accent} weight={3} opacity={0.9} />
+        <Polyline positions={latLngs} color="#d97706" weight={4} opacity={0.95} />
         {pickupLat && pickupLng && (
           <CircleMarker center={[pickupLat, pickupLng]} radius={8}
-            color="#06080f" fillColor={C.accent} fillOpacity={1} weight={2} />
+            color="#fff" fillColor="#d97706" fillOpacity={1} weight={2} />
         )}
       </MapContainer>
     </div>
@@ -550,9 +555,9 @@ export default function Dashboard({ token, role, onLogout }) {
         {/* Header */}
         <header style={{
           position: 'sticky', top: 0, zIndex: 50,
-          background: 'rgba(6,8,15,0.9)', backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: `1px solid rgba(0,220,255,0.08)`,
+          background: 'rgba(247,231,206,0.95)', backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: `1px solid ${C.border}`,
           padding: '0 40px', height: 64,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
